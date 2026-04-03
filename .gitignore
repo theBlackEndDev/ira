@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.ira/
+scripts/.ira/
+*.log
+.env
+.env.local

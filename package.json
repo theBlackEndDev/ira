@@ -1,0 +1,25 @@
+{
+  "name": "ira",
+  "version": "0.1.0",
+  "description": "Intelligent Reasoning Assistant — AI orchestration for Claude Code",
+  "type": "module",
+  "scripts": {
+    "setup": "bun run scripts/setup.ts",
+    "migrate": "bun run scripts/migrate-from-pai.ts",
+    "uninstall-pai": "bun run scripts/uninstall-pai.ts",
+    "uninstall-pai:dry-run": "bun run scripts/uninstall-pai.ts --dry-run",
+    "uninstall-pai:restore": "bun run scripts/uninstall-pai.ts --restore",
+    "cli": "bun run scripts/ira-cli.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "test": "bun test",
+    "test:hooks": "bun test hooks/",
+    "lint": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}
