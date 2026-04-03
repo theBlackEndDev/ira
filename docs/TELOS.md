@@ -18,7 +18,7 @@ When IRA knows your mission and goals, it can:
 
 ## TELOS Files
 
-Stored in `.ira/telos/` (migrated from PAI) or created fresh:
+Stored in `.ira/telos/` or created fresh:
 
 | File | Purpose |
 |------|---------|
