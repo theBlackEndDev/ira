@@ -1,25 +1,25 @@
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "*", "command": "node hooks/scripts/context-loader.mjs", "timeout": 5000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/context-loader.mjs", "timeout": 5000 }] }
     ],
     "UserPromptSubmit": [
-      { "matcher": "*", "command": "node hooks/scripts/keyword-detector.mjs", "timeout": 5000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/keyword-detector.mjs", "timeout": 5000 }] }
     ],
     "PreToolUse": [
-      { "matcher": "*", "command": "node hooks/scripts/boundary-enforcer.mjs", "timeout": 3000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/boundary-enforcer.mjs", "timeout": 3000 }] }
     ],
     "PostToolUse": [
-      { "matcher": "*", "command": "node hooks/scripts/state-sync.mjs", "timeout": 3000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/state-sync.mjs", "timeout": 3000 }] }
     ],
     "PreCompact": [
-      { "matcher": "*", "command": "node hooks/scripts/context-saver.mjs", "timeout": 10000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/context-saver.mjs", "timeout": 10000 }] }
     ],
     "Stop": [
-      { "matcher": "*", "command": "node hooks/scripts/ralph-loop.mjs", "timeout": 10000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/ralph-loop.mjs", "timeout": 10000 }] }
     ],
     "SessionEnd": [
-      { "matcher": "*", "command": "node hooks/scripts/session-harvester.mjs", "timeout": 30000 }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/session-harvester.mjs", "timeout": 30000 }] }
     ]
   }
 }
