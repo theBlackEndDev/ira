@@ -47,7 +47,7 @@ All hooks:
 ```json
 {
   "decision": "block",
-  "reason": "[RALPH LOOP — Iteration 3/20] Continue working. Remaining: ISC-4, ISC-7."
+  "reason": "[RALPH LOOP — Iteration 3/25] Continue working. ISC criteria not yet fully satisfied. Review your progress and continue to the next step."
 }
 ```
 
@@ -76,14 +76,14 @@ All hooks:
 1. Reads Stop event from stdin
 2. Checks `.ira/state/ralph-state.json`
 3. If active, not stale, and iterations < max:
-   - Reads PRD for unchecked ISC criteria
-   - Emits `{ decision: "block", reason: "..." }` with remaining criteria
+   - Checks `work.json` for ISC completion status
+   - If ISC incomplete: emits `{ decision: "block", reason: "..." }` with continuation prompt
    - Increments iteration counter
 4. Safety checks:
    - 2-hour staleness → treat as inactive
    - Context limit stop → never block
    - User abort → always respect
-   - Max iterations → auto-extend by 10
+   - Max iterations (25) → deactivate and allow stop
 
 ### boundary-enforcer.mjs (PreToolUse)
 
@@ -96,10 +96,10 @@ All hooks:
 
 ## Hook Installation
 
-Hooks are registered in Claude Code's `settings.json`. The setup script handles this:
+Hooks are registered in Claude Code's `settings.json`. Use the uninstall-pai script to migrate from PAI and register IRA hooks:
 
 ```bash
-bun run scripts/setup.ts
+bun run scripts/uninstall-pai.ts
 ```
 
 This merges IRA's `hooks/hooks.json` into `~/.claude/settings.json`.
@@ -110,4 +110,4 @@ This merges IRA's `hooks/hooks.json` into `~/.claude/settings.json`.
 
 1. Create a script in `hooks/scripts/`
 2. Add registration to `hooks/hooks.json`
-3. Run `bun run scripts/setup.ts` to re-register
+3. Run `bun run scripts/uninstall-pai.ts` to re-register (or manually update `~/.claude/settings.json`)

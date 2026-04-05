@@ -8,11 +8,11 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["bun-types"],
+    "types": ["bun-types"],  // requires: bun install
     "paths": {
       "@/*": ["./*"]
     }
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "hooks/**/*.mjs"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

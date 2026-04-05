@@ -174,7 +174,9 @@ function restoreFromBackup() {
     for (const [event, hookList] of Object.entries(hooks)) {
       if (Array.isArray(hookList)) {
         settings.hooks[event] = hookList.filter(
-          (h: any) => !h.command?.includes("ira/hooks/")
+          (entry: any) => !(entry.hooks || []).some(
+            (h: any) => h.command?.includes("ira/hooks/")
+          )
         );
       }
     }
@@ -294,7 +296,7 @@ function updateSettingsHooks(dryRun: boolean, iraPath: string) {
     logAction("HOOKS", "Removed PAI hooks from settings.json");
   }
 
-  // Add IRA hooks
+  // Add IRA hooks (format: { matcher, hooks: [{ type, command, timeout }] })
   for (const [event, hookList] of Object.entries(iraHooks)) {
     if (!Array.isArray(hookList)) continue;
 
@@ -302,23 +304,27 @@ function updateSettingsHooks(dryRun: boolean, iraPath: string) {
       settings.hooks[event] = [];
     }
 
-    for (const hook of hookList as any[]) {
-      // Resolve hook command path relative to IRA project
-      const resolvedHook = {
-        ...hook,
-        command: hook.command.replace(
-          /^node hooks\//,
-          `node ${join(iraPath, "hooks")}/`
-        ),
+    for (const entry of hookList as any[]) {
+      // Resolve hook command paths relative to IRA project
+      const resolvedEntry = {
+        ...entry,
+        hooks: (entry.hooks || []).map((h: any) => ({
+          ...h,
+          command: h.command?.replace(
+            /^node hooks\//,
+            `node ${join(iraPath, "hooks")}/`
+          ),
+        })),
       };
 
-      // Check if already registered
+      // Check if already registered (compare first hook command)
+      const resolvedCmd = resolvedEntry.hooks[0]?.command;
       const exists = settings.hooks[event].some(
-        (h: any) => h.command === resolvedHook.command
+        (e: any) => e.hooks?.[0]?.command === resolvedCmd
       );
 
       if (!exists) {
-        settings.hooks[event].push(resolvedHook);
+        settings.hooks[event].push(resolvedEntry);
       }
     }
   }
@@ -327,8 +333,9 @@ function updateSettingsHooks(dryRun: boolean, iraPath: string) {
     logAction("HOOKS", "Would register IRA hooks in settings.json");
     for (const [event, hookList] of Object.entries(iraHooks)) {
       if (Array.isArray(hookList)) {
-        for (const h of hookList) {
-          logAction("", `  ${event}: ${(h as any).command}`);
+        for (const entry of hookList) {
+          const cmd = (entry as any).hooks?.[0]?.command ?? "(no command)";
+          logAction("", `  ${event}: ${cmd}`);
         }
       }
     }
@@ -342,7 +349,11 @@ function removeLoadAtStartup(dryRun: boolean) {
   if (!existsSync(SETTINGS_JSON)) return;
 
   const settings = JSON.parse(readFileSync(SETTINGS_JSON, "utf-8"));
-  if (!Array.isArray(settings.loadAtStartup)) { logAction("STARTUP", "Not an array, skipping"); return; } const startup = settings.loadAtStartup;
+  if (!Array.isArray(settings.loadAtStartup)) {
+    logAction("STARTUP", "Not an array, skipping");
+    return;
+  }
+  const startup = settings.loadAtStartup;
 
   // Remove PAI-related startup files
   const filtered = startup.filter(

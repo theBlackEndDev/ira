@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 
 try {
@@ -9,29 +9,45 @@ try {
   const base = cwd || process.cwd();
   const contextParts = [];
 
-  // Load project memory
-  const memoryFile = join(base, '.ira', 'memory', 'project-memory.json');
-  if (existsSync(memoryFile)) {
+  // Load project memory from .ira/memory/projects/
+  const projectsDir = join(base, '.ira', 'memory', 'projects');
+  if (existsSync(projectsDir)) {
     try {
-      const memory = JSON.parse(readFileSync(memoryFile, 'utf-8'));
-      if (memory.summary) {
-        contextParts.push(`[IRA PROJECT MEMORY] ${memory.summary}`);
+      const memoryParts = [];
+      const projects = readdirSync(projectsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory());
+      for (const project of projects.slice(0, 5)) {
+        const projDir = join(projectsDir, project.name);
+        const files = readdirSync(projDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
+        for (const file of files.slice(0, 3)) {
+          try {
+            const content = readFileSync(join(projDir, file), 'utf-8').trim();
+            if (content) memoryParts.push(content.slice(0, 500));
+          } catch { /* skip */ }
+        }
       }
-      if (memory.keyDecisions && memory.keyDecisions.length > 0) {
-        contextParts.push(`[IRA KEY DECISIONS] ${memory.keyDecisions.join('; ')}`);
+      if (memoryParts.length > 0) {
+        contextParts.push(`[IRA PROJECT MEMORY]\n${memoryParts.join('\n---\n')}`);
       }
     } catch {
-      // Corrupted memory file — skip
+      // Skip
     }
   }
 
-  // Load TELOS context if configured
-  const telosConfig = join(base, '.ira', 'telos.json');
-  if (existsSync(telosConfig)) {
+  // Load TELOS context from .ira/telos/ directory
+  const telosDir = join(base, '.ira', 'telos');
+  if (existsSync(telosDir)) {
     try {
-      const telos = JSON.parse(readFileSync(telosConfig, 'utf-8'));
-      if (telos.context) {
-        contextParts.push(`[IRA TELOS] ${telos.context}`);
+      const telosParts = [];
+      const files = readdirSync(telosDir).filter(f => f.endsWith('.md'));
+      for (const file of files) {
+        try {
+          const content = readFileSync(join(telosDir, file), 'utf-8').trim();
+          if (content) telosParts.push(`### ${file.replace('.md', '')}\n${content.slice(0, 500)}`);
+        } catch { /* skip */ }
+      }
+      if (telosParts.length > 0) {
+        contextParts.push(`[IRA TELOS]\n${telosParts.join('\n')}`);
       }
     } catch {
       // Skip
@@ -65,6 +81,23 @@ try {
         const twoHours = 2 * 60 * 60 * 1000;
         if (Date.now() - startedAt < twoHours) {
           contextParts.push(`[IRA ACTIVE MODE: AUTOPILOT] Iteration ${state.iteration || 0}/${state.maxIterations || 10}. Resuming from previous session.`);
+        }
+      }
+    } catch {
+      // Skip
+    }
+  }
+
+  // Check for active ultrawork state
+  const ultraworkState = join(base, '.ira', 'state', 'ultrawork-state.json');
+  if (existsSync(ultraworkState)) {
+    try {
+      const state = JSON.parse(readFileSync(ultraworkState, 'utf-8'));
+      if (state.active) {
+        const startedAt = new Date(state.startedAt).getTime();
+        const twoHours = 2 * 60 * 60 * 1000;
+        if (Date.now() - startedAt < twoHours) {
+          contextParts.push(`[IRA ACTIVE MODE: ULTRAWORK] Resuming from previous session. Maximum parallelization enabled.`);
         }
       }
     } catch {

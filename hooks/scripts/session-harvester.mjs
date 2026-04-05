@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
 try {

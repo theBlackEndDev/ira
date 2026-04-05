@@ -32,10 +32,10 @@ git clone <repo-url> ~/ira
 # Install
 cd ~/ira && bun install
 
-# Setup (creates ~/.claude symlinks and configures hooks)
-bun run scripts/setup.ts
+# Switch from PAI to IRA (backs up PAI, registers IRA hooks)
+bun run scripts/uninstall-pai.ts
 
-# If migrating from PAI
+# If migrating PAI data (learnings, memory, PRDs)
 bun run scripts/migrate-from-pai.ts --source ~/.claude
 
 # For remote machines with PAI data
@@ -243,9 +243,9 @@ Intent filtering prevents false activation — asking "what is ralph?" won't tri
 
 ---
 
-## tmux Integration
+## tmux Integration (Planned)
 
-IRA supports tmux for persistent sessions on servers:
+tmux support for persistent sessions on servers is planned:
 
 ```bash
 # Start IRA in a tmux session
@@ -261,7 +261,7 @@ ira tmux list
 ira team 3:executor "fix all TypeScript errors"
 ```
 
-Sessions persist through disconnections. Reconnect anytime without losing context.
+> **Note:** tmux and CLI features require `ira-cli.ts` which is not yet implemented.
 
 ---
 
@@ -324,11 +324,10 @@ ira/
 │   ├── TELOS.md           # Life-aware context system
 │   ├── LEARNING.md        # Continuous improvement loop
 │   └── MIGRATION.md       # PAI migration guide
-├── scripts/               # Setup, migration, utilities
-│   ├── setup.ts           # First-time installation
-│   ├── migrate-from-pai.ts# PAI → IRA migration
-│   └── ira-cli.ts         # CLI entry point
-├── src/                   # TypeScript infrastructure
+├── scripts/               # Migration, utilities
+│   ├── migrate-from-pai.ts# PAI → IRA data migration
+│   └── uninstall-pai.ts   # PAI removal + IRA hook registration
+├── src/                   # TypeScript infrastructure (planned)
 │   ├── config/            # Configuration and model routing
 │   ├── features/          # Complexity classification, delegation
 │   ├── hooks/             # Hook implementations
@@ -340,8 +339,7 @@ ira/
 │   ├── learning/          # Ratings, reflections, failures
 │   └── events.jsonl       # Unified event log
 ├── package.json
-├── tsconfig.json
-└── bunfig.toml
+└── tsconfig.json
 ```
 
 ---

@@ -64,9 +64,10 @@ Example: `ralph build with ultrawork and anti-slop`
 **Trigger:** "plan" keyword
 **Effect:** Consensus planning. Analyst decomposes, architect designs, critic validates.
 
-### analyze
+### analyze (planned)
 **Trigger:** "analyze" keyword
 **Effect:** Deep root-cause analysis. Uses debugger (Sonnet) for investigation, architect (Opus) for systemic issues.
+**Status:** Keyword detection active; SKILL.md not yet implemented.
 
 ### council
 **Trigger:** "council" keyword
@@ -81,6 +82,8 @@ Keywords detected by the `keyword-detector.mjs` hook at UserPromptSubmit time.
 **Intent filtering:** Asking "what is ralph?" does NOT activate ralph. Only imperative usage triggers activation.
 
 **Priority:** cancel > ralph > autopilot > ultrawork > council > red-team > research > plan > analyze > anti-slop > build
+
+> **Note:** cancel, autopilot, red-team, and analyze have keyword detection but no SKILL.md definitions yet. They are planned.
 
 ---
 

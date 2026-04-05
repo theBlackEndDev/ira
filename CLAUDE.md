@@ -108,7 +108,7 @@ These activate skills automatically when detected in user input:
 | plan | Consensus architecture planning |
 | analyze | Deep root-cause analysis |
 | anti-slop | Code cleanup pass |
-| cancel | Clear all active states |
+| cancel | Cancel the named mode (e.g., "cancel ralph") |
 
 ---
 

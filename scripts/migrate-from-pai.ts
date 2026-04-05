@@ -6,10 +6,9 @@
  * Supports local migration, remote harvesting via rsync, and multi-machine merge.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync, copyFileSync, appendFileSync } from "fs";
-import { join, basename, dirname, resolve, relative } from "path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync, copyFileSync } from "fs";
+import { join, dirname, resolve, relative } from "path";
 import { execSync } from "child_process";
-import { parseArgs } from "util";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ level: 7
 # Ralph
 
 ## What This Skill Does
-Ralph is the completion guarantee loop. It takes a task description, generates a PRD with ISC (Implementation Success Criteria), then iterates through implement-verify cycles until every criterion is satisfied with concrete evidence. It will not exit until the work is done or the iteration cap is hit.
+Ralph is the completion guarantee loop. It takes a task description, generates a PRD with ISC (Ideal State Criteria), then iterates through implement-verify cycles until every criterion is satisfied with concrete evidence. It will not exit until the work is done or the iteration cap is hit.
 
 ## When to Use
 - Activated explicitly via the "ralph" keyword in a request
@@ -22,7 +22,7 @@ Ralph is the completion guarantee loop. It takes a task description, generates a
 1. Parse the task description into discrete deliverables
 2. For each deliverable, generate 2-5 ISC criteria that are binary pass/fail
 3. Each ISC criterion MUST be verifiable by an automated check (test run, grep, file existence, build success)
-4. Write the PRD to a state file at `.ralph/prd.md` in the working directory
+4. Write state to `.ira/state/ralph-state.json` in the working directory
 5. Log iteration count: 0
 
 ### Phase 2: Implementation Loop
@@ -52,7 +52,7 @@ FOR iteration IN 1..max_iterations:
 5. IF verifier approves all: proceed to clean exit
 
 ### Phase 5: Clean Exit
-1. Remove `.ralph/` state directory
+1. Mark `.ira/state/ralph-state.json` as inactive
 2. Output final summary: iterations used, criteria met, evidence references
 3. Release all child agents
 
@@ -62,9 +62,8 @@ Ralph installs a stop-hook that blocks premature exit. If the agent attempts to 
 - Max iterations reached (report partial completion with evidence gap)
 
 ### Iteration Limits
-- Default max: 20 iterations
-- If iteration 18 is reached with progress being made, auto-extend by 10
-- Hard cap: 30 iterations — at this point, output what was achieved and what remains
+- Default max: 25 iterations
+- At max iterations: output what was achieved and what remains
 
 ## Composition
 - **Activates ultrawork**: Always, for parallel subtask execution

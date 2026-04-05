@@ -2,6 +2,7 @@ node_modules/
 dist/
 .ira/
 scripts/.ira/
+typescript
 *.log
 .env
 .env.local

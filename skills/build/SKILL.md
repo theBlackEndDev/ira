@@ -42,7 +42,7 @@ Based on scope assessment, route work:
   - API design that will be consumed by external systems
 
 ### Step 3: ISC Generation
-Generate Implementation Success Criteria based on complexity:
+Generate Ideal State Criteria based on complexity:
 
 **Trivial** (1-2 criteria):
 - The change compiles/runs without errors

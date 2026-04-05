@@ -27,7 +27,7 @@ After completing complex work, IRA asks for a rating (1-10):
 | 3-4 | Poor — Significant issues | Full failure analysis |
 | 1-2 | Failure — Wrong direction | Emergency context dump |
 
-Ratings are stored in `.ira/learning/signals/`.
+Ratings are stored in `.ira/learning/ratings.jsonl`.
 
 ---
 
@@ -59,11 +59,11 @@ Ratings 1-3 trigger a full context dump to `.ira/learning/failures/`:
 
 ```
 failures/
-  2026-04-02_auth-system-failure/
-    context.md      — What was asked, what was delivered
-    transcript.md   — Key conversation excerpts
-    root-cause.md   — Why it went wrong
-    prevention.md   — How to prevent next time
+  2026-04/2026-04-02_auth-system-failure/
+    CONTEXT.md        — What was asked, what was delivered
+    sentiment.json    — Rating and sentiment analysis
+    transcript.jsonl  — Conversation transcript entries
+    tool-calls.json   — Tool usage during the session
 ```
 
 ---
