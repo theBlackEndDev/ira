@@ -96,9 +96,13 @@ All hooks:
 
 ## Hook Installation
 
-Hooks are registered in Claude Code's `settings.json`. Use the uninstall-pai script to migrate from PAI and register IRA hooks:
+Hooks are registered in Claude Code's `settings.json`. Use the setup script for fresh installs or uninstall-pai for migrations:
 
 ```bash
+# Fresh install
+bun run scripts/setup.ts
+
+# Migrating from PAI
 bun run scripts/uninstall-pai.ts
 ```
 

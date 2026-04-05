@@ -69,6 +69,23 @@ try {
     }
   }
 
+  // Archive rating if ISC work was done
+  if (sessionMeta.iscProgress && sessionMeta.iscProgress.total > 0) {
+    const ratingsFile = join(base, '.ira', 'learning', 'ratings.jsonl');
+    try {
+      mkdirSync(join(base, '.ira', 'learning'), { recursive: true });
+      const ratingEntry = {
+        timestamp: now,
+        sessionId: sessionId || 'unknown',
+        iscTotal: sessionMeta.iscProgress.total,
+        iscChecked: sessionMeta.iscProgress.checked,
+        iscPercent: sessionMeta.iscProgress.percent,
+        modes: sessionMeta.modes.filter(m => m.active).map(m => m.mode),
+      };
+      appendFileSync(ratingsFile, JSON.stringify(ratingEntry) + '\n');
+    } catch { /* skip */ }
+  }
+
   // Append to events log
   const eventsFile = join(base, '.ira', 'events.jsonl');
   appendFileSync(eventsFile, JSON.stringify(sessionMeta) + '\n');

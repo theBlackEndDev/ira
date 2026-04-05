@@ -6,7 +6,22 @@ try {
   const data = JSON.parse(input);
   const { toolName, toolInput, toolOutput, cwd } = data;
 
-  // Only process Write/Edit of PRD-like files
+  // Track current agent from Agent tool invocations
+  if (toolName === 'Agent' && toolInput) {
+    const agentName = toolInput.subagent_type || toolInput.name || null;
+    if (agentName) {
+      const base = cwd || process.cwd();
+      const stateDir = join(base, '.ira', 'state');
+      mkdirSync(stateDir, { recursive: true });
+      const agentFile = join(stateDir, 'current-agent.json');
+      writeFileSync(agentFile, JSON.stringify({
+        agent: agentName.toLowerCase(),
+        startedAt: new Date().toISOString(),
+      }, null, 2));
+    }
+  }
+
+  // Only process Write/Edit of PRD-like files for ISC sync
   if (toolName !== 'Write' && toolName !== 'Edit') {
     console.log(JSON.stringify({}));
     process.exit(0);

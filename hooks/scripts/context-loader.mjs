@@ -105,6 +105,43 @@ try {
     }
   }
 
+  // Load recent learning signals
+  const ratingsFile = join(base, '.ira', 'learning', 'ratings.jsonl');
+  if (existsSync(ratingsFile)) {
+    try {
+      const content = readFileSync(ratingsFile, 'utf-8').trim();
+      if (content) {
+        const lines = content.split('\n').filter(l => l.trim());
+        const recent = lines.slice(-5); // last 5 ratings
+        const lowRatings = recent
+          .map(l => { try { return JSON.parse(l); } catch { return null; } })
+          .filter(r => r && r.rating <= 3);
+        if (lowRatings.length > 0) {
+          const warnings = lowRatings.map(r => `- Rating ${r.rating}: ${r.reason || r.task || 'no details'}`).join('\n');
+          contextParts.push(`[IRA LEARNING — Recent low ratings]\n${warnings}`);
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  // Load user config files from .ira/user/
+  const userDir = join(base, '.ira', 'user');
+  if (existsSync(userDir)) {
+    try {
+      const userFiles = readdirSync(userDir).filter(f => f.endsWith('.md'));
+      const userParts = [];
+      for (const file of userFiles.slice(0, 5)) {
+        try {
+          const content = readFileSync(join(userDir, file), 'utf-8').trim();
+          if (content) userParts.push(content.slice(0, 500));
+        } catch { /* skip */ }
+      }
+      if (userParts.length > 0) {
+        contextParts.push(`[IRA USER CONFIG]\n${userParts.join('\n---\n')}`);
+      }
+    } catch { /* skip */ }
+  }
+
   // Check for saved notepad from compaction
   const notepad = join(base, '.ira', 'state', 'notepad.md');
   if (existsSync(notepad)) {

@@ -161,6 +161,17 @@ VERIFY:
 
 ---
 
+## Workflow Standards (All Projects)
+
+These apply automatically to every project session. Do not skip.
+
+1. **Pull latest code** before starting any work (`git pull`)
+2. **E2E test all core user flows** — login, logout, register, and app-specific tasks. Always create and run complete e2e tests.
+3. **Docker DB for testing** — Create a temporary Docker database for e2e tests when the app requires a database.
+4. **Deploy prep after work** — After completing work, prep for Vercel deployment via CLI. Create a Neon DB if the app needs a production database.
+
+---
+
 ## Context Loading
 
 Load additional context on-demand from `docs/`:

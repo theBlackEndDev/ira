@@ -280,12 +280,20 @@ function updateSettingsHooks(dryRun: boolean, iraPath: string) {
 
   for (const [event, hookList] of Object.entries(currentHooks)) {
     if (Array.isArray(hookList)) {
-      settings.hooks[event] = hookList.filter((h: any) => {
-        const cmd = h.command ?? "";
-        const name = h.name ?? "";
-        return !paiHookPatterns.some(
-          (p) => cmd.includes(p) || name.includes(p)
-        );
+      settings.hooks[event] = hookList.filter((entry: any) => {
+        // Handle both old format ({ command, name }) and new format ({ matcher, hooks: [{ command }] })
+        const commands: string[] = [];
+        const names: string[] = [];
+        if (entry.command) commands.push(entry.command);
+        if (entry.name) names.push(entry.name);
+        if (Array.isArray(entry.hooks)) {
+          for (const h of entry.hooks) {
+            if (h.command) commands.push(h.command);
+            if (h.name) names.push(h.name);
+          }
+        }
+        const allText = [...commands, ...names].join(" ");
+        return !paiHookPatterns.some((p) => allText.includes(p));
       });
     }
   }

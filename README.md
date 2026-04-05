@@ -1,46 +1,64 @@
-# IRA — Intelligent Reasoning Assistant
+# IRA -- Intelligent Reasoning Assistant
 
-> A next-generation AI orchestration system for Claude Code that combines structured quality assurance with autonomous execution.
+> AI orchestration for Claude Code. Structured quality assurance meets autonomous execution.
 
-IRA takes the best ideas from [PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/Personal_AI_Infrastructure) and [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), strips the overhead, and builds something leaner and more powerful than either.
+IRA combines the best of [PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) and [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) into something leaner and more powerful than either.
 
 ---
 
 ## What IRA Does
 
-IRA transforms Claude Code from a conversational AI into an autonomous development platform with:
-
-- **Zero-ceremony simple tasks** — No mode selection. Just work.
-- **Full rigor for complex tasks** — Automatic complexity classification scales up ISC criteria, reviewer separation, and verification loops.
-- **19 specialized agents** with static model routing (Haiku/Sonnet/Opus per agent)
-- **Ralph loop** — Hook-enforced persistence that blocks completion until work is verified done
-- **Three-layer skill composition** — Execution + Enhancement + Guarantee layers
-- **ISC quality system** — Atomic, binary-testable Ideal State Criteria with the Splitting Test
-- **Life-aware context** — TELOS integration for goal-aligned decision making
-- **Composable automation** — Actions, Pipelines, and Flows for scheduled workflows
-- **Learning loop** — Every session feeds ratings, reflections, and failure analysis back into improvement
-- **tmux session persistence** — Never lose work when disconnected from servers
+- **Zero ceremony for simple tasks** -- No mode selection. Just work.
+- **Full rigor for complex tasks** -- Automatic complexity classification scales ISC criteria, reviewer separation, and verification loops.
+- **19 specialized agents** with static model routing (Haiku / Sonnet / Opus)
+- **13 composable skills** in three layers (Guarantee + Enhancement + Execution)
+- **Ralph loop** -- Stop-hook blocks completion until ISC criteria are verified done
+- **Autopilot pipeline** -- Analyze -> Plan -> Build -> QA -> Verify, fully automated
+- **ISC quality system** -- Atomic, binary-testable Ideal State Criteria
+- **Learning loop** -- Ratings, reflections, and failure analysis feed back into future sessions
+- **tmux sessions** -- Persistent per-project Claude Code sessions that survive disconnects
+- **TELOS integration** -- Life-aware context for goal-aligned decisions
 
 ---
 
 ## Quick Start
 
-```bash
-# Clone into your workspace
-git clone <repo-url> ~/ira
+### Prerequisites
 
-# Install
+- [Bun](https://bun.sh/) runtime
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
+- tmux (optional, for session persistence)
+
+### Fresh Install
+
+```bash
+git clone <repo-url> ~/ira
 cd ~/ira && bun install
 
-# Switch from PAI to IRA (backs up PAI, registers IRA hooks)
-bun run scripts/uninstall-pai.ts
-
-# If migrating PAI data (learnings, memory, PRDs)
-bun run scripts/migrate-from-pai.ts --source ~/.claude
-
-# For remote machines with PAI data
-bun run scripts/migrate-from-pai.ts --source user@server:~/.claude --harvest-only
+# Setup: creates .ira/ dirs, registers hooks, symlinks CLAUDE.md, generates config
+bun run setup
 ```
+
+### Migrating from PAI
+
+```bash
+# Switch from PAI to IRA (backs up PAI first)
+bun run uninstall-pai
+
+# Migrate PAI data (learnings, memory, PRDs)
+bun run migrate -- --source ~/.claude
+
+# Harvest from remote machines
+bun run migrate -- --source user@server:~/.claude --harvest-only
+
+# Merge learnings from multiple machines
+bun run migrate -- \
+  --source user@server1:~/.claude \
+  --source user@server2:~/.claude \
+  --merge-learnings
+```
+
+See [Migration Guide](docs/MIGRATION.md) for details.
 
 ---
 
@@ -48,305 +66,271 @@ bun run scripts/migrate-from-pai.ts --source user@server:~/.claude --harvest-onl
 
 ```
 User Input
-    │
-    ▼
-┌─────────────────────────────────────────────┐
-│  HOOKS (enforcement layer)                   │
-│  SessionStart → Load context, TELOS, memory  │
-│  UserPromptSubmit → Keyword detect + classify│
-│  Stop → Ralph loop (block if incomplete)     │
-│  PostToolUse → State sync, learn             │
-│  SessionEnd → Harvest learnings              │
-└─────────────┬───────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────┐
-│  ROUTING (automatic complexity classifier)   │
-│                                              │
-│  Simple  (<2 min)  → Direct, no ceremony     │
-│  Standard (<8 min) → ISC criteria (8+)       │
-│  Deep    (<32 min) → Full Algorithm (5 phase)│
-│  Comprehensive     → Algorithm + Ralph       │
-└─────────────┬───────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────┐
-│  AGENTS (19 specialists, auto-routed)        │
-│                                              │
-│  Tier 1 (Haiku):  scout, formatter, explorer │
-│  Tier 2 (Sonnet): executor, debugger, tester │
-│  Tier 3 (Opus):   architect, analyst, critic │
-└─────────────┬───────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────┐
-│  SKILLS (three-layer composition)            │
-│                                              │
-│  Guarantee:   ralph, verify                  │
-│  Enhancement: ultrawork, git-ops, anti-slop  │
-│  Execution:   build, research, plan, analyze │
-└─────────────┬───────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────┐
-│  STATE (.ira/ — hook-managed persistence)    │
-│                                              │
-│  state/    → Mode state (ralph, ultrawork)   │
-│  work/     → PRD files per task              │
-│  memory/   → Cross-session knowledge         │
-│  learning/ → Ratings, reflections, failures  │
-└─────────────────────────────────────────────┘
+    |
+    v
++-----------------------------------------------+
+|  HOOKS (enforcement layer -- 7 lifecycle hooks)|
+|  SessionStart  -> context, TELOS, memory, user |
+|  UserPromptSubmit -> keywords, complexity      |
+|  PreToolUse    -> agent boundary enforcement   |
+|  PostToolUse   -> ISC sync, agent tracking     |
+|  PreCompact    -> save state before compaction |
+|  Stop          -> Ralph loop (block if active) |
+|  SessionEnd    -> harvest ratings, archive     |
++---------------------+-------------------------+
+                      |
+                      v
++-----------------------------------------------+
+|  COMPLEXITY CLASSIFIER (automatic)             |
+|                                                |
+|  Simple       -> Direct execution, no ISC      |
+|  Standard     -> 8+ ISC criteria               |
+|  Deep         -> 24+ ISC, full algorithm       |
+|  Comprehensive -> 64+ ISC, Ralph guarantee     |
++---------------------+-------------------------+
+                      |
+                      v
++-----------------------------------------------+
+|  AGENTS (19 specialists)                       |
+|                                                |
+|  Tier 1 Haiku:  scout, formatter, explorer     |
+|  Tier 2 Sonnet: executor, debugger, tester,    |
+|    designer, content-writer, social-ops,       |
+|    git-ops, security-reviewer, code-reviewer   |
+|  Tier 3 Opus:   architect, analyst, critic,    |
+|    brand-strategist, scientist, planner,       |
+|    verifier                                    |
++---------------------+-------------------------+
+                      |
+                      v
++-----------------------------------------------+
+|  SKILLS (three-layer composition)              |
+|                                                |
+|  Guarantee:   ralph, verify, autopilot         |
+|  Enhancement: ultrawork, git-ops, anti-slop,   |
+|               cancel                           |
+|  Execution:   build, research, plan, analyze,  |
+|               council, red-team                |
++---------------------+-------------------------+
+                      |
+                      v
++-----------------------------------------------+
+|  STATE (.ira/ -- hook-managed persistence)     |
+|                                                |
+|  state/    -> ralph, autopilot, ultrawork,     |
+|               current-agent, work.json         |
+|  learning/ -> ratings.jsonl, reflections,      |
+|               failures, synthesis              |
+|  memory/   -> project memory files             |
+|  telos/    -> life-context markdown files       |
+|  user/     -> steering rules, opinions, style  |
++-----------------------------------------------+
 ```
 
-See [Architecture Deep Dive](docs/ARCHITECTURE.md) for the full system design.
+See [Architecture Deep Dive](docs/ARCHITECTURE.md) for full system design.
 
 ---
 
-## Core Concepts
+## Agents
 
-### Automatic Complexity Classification
+19 agents across 3 model tiers. Role boundaries enforced by the `boundary-enforcer` hook -- agents with `disallowedTools: ["Write", "Edit"]` are blocked from writing code.
 
-IRA detects task complexity and scales ceremony accordingly. No mode selection needed.
+| Agent | Tier | Model | Role | Read-Only |
+|-------|------|-------|------|-----------|
+| scout | 1 | Haiku | Quick file lookups, simple checks | Yes |
+| formatter | 1 | Haiku | Code formatting, cleanup | No |
+| explorer | 1 | Haiku | Codebase navigation, file search | Yes |
+| executor | 2 | Sonnet | Implementation, standard coding | No |
+| debugger | 2 | Sonnet | Bug isolation, root cause analysis | No |
+| test-engineer | 2 | Sonnet | Test writing, coverage analysis | No |
+| designer | 2 | Sonnet | UI/UX implementation | No |
+| content-writer | 2 | Sonnet | Documentation, copy, content | No |
+| social-ops | 2 | Sonnet | Social media content, scheduling | No |
+| git-ops | 2 | Sonnet | Git operations, PR management | No |
+| security-reviewer | 2 | Sonnet | Vulnerability scanning, OWASP | No |
+| code-reviewer | 2 | Sonnet | Quality review, patterns | Yes |
+| architect | 3 | Opus | System design, decisions | Yes |
+| analyst | 3 | Opus | Requirements, ISC decomposition | Yes |
+| critic | 3 | Opus | Plan validation, adversarial review | Yes |
+| brand-strategist | 3 | Opus | Brand positioning, strategy | Yes |
+| scientist | 3 | Opus | Hypothesis testing, experiments | Yes |
+| planner | 3 | Opus | Implementation planning | No |
+| verifier | 3 | Opus | Acceptance verification, evidence | Yes |
 
-| Complexity | Detection | What Happens |
-|------------|-----------|--------------|
-| **Simple** | Single file, quick fix, Q&A | Direct execution. No ISC, no PRD. |
-| **Standard** | Multi-file, feature work | 8+ ISC criteria. Lightweight verification. |
-| **Deep** | Architecture, multi-system | 24+ ISC criteria. Full 5-phase algorithm. Reviewer separation. |
-| **Comprehensive** | Full builds, major features | 64+ ISC criteria. Algorithm + Ralph loop guarantee. |
+See [Agent Reference](docs/AGENTS.md) for full definitions.
 
-### Agents with Static Model Routing
+---
 
-Every agent carries its optimal model tier. No manual `model:` selection needed.
+## Skills
 
-| Agent | Tier | Model | Role |
-|-------|------|-------|------|
-| scout | 1 | Haiku | Quick file lookups, simple checks |
-| formatter | 1 | Haiku | Code formatting, cleanup |
-| explorer | 1 | Haiku | Codebase navigation, file search |
-| executor | 2 | Sonnet | Implementation, standard coding |
-| debugger | 2 | Sonnet | Bug isolation, root cause analysis |
-| test-engineer | 2 | Sonnet | Test writing, coverage analysis |
-| designer | 2 | Sonnet | UI/UX implementation |
-| content-writer | 2 | Sonnet | Documentation, copy, content |
-| social-ops | 2 | Sonnet | Social media content, scheduling |
-| git-ops | 2 | Sonnet | Git operations, PR management |
-| security-reviewer | 2 | Sonnet | Vulnerability scanning, OWASP |
-| code-reviewer | 2 | Sonnet | Quality review, patterns |
-| architect | 3 | Opus | System design, architecture decisions |
-| analyst | 3 | Opus | Requirements analysis, decomposition |
-| critic | 3 | Opus | Plan validation, adversarial review |
-| brand-strategist | 3 | Opus | Brand positioning, marketing strategy |
-| scientist | 3 | Opus | Hypothesis testing, experiments |
-| planner | 3 | Opus | Implementation planning, sequencing |
-| verifier | 3 | Opus | Acceptance verification, evidence |
-
-See [Agent Reference](docs/AGENTS.md) for complete agent definitions.
-
-### Three-Layer Skill Composition
-
-Skills compose in layers, not as a flat list:
+13 skills in three composable layers:
 
 ```
-GUARANTEE LAYER (optional — wraps everything)
-  ralph: "Cannot stop until verified done"
-  verify: "Evidence required for every claim"
-    │
-ENHANCEMENT LAYER (0-N additive)
-  ultrawork: Maximum parallelization
-  git-ops: Commit management
-  anti-slop: Mandatory cleanup pass
-    │
-EXECUTION LAYER (primary skill)
-  build: Implementation work
-  research: Multi-agent investigation
-  plan: Architecture and planning
-  analyze: Debugging and root cause
+GUARANTEE (wraps everything)
+  ralph       -- Loop until all ISC verified. Stop-hook enforced.
+  verify      -- Evidence required for every claim.
+  autopilot   -- Full pipeline: analyze -> plan -> build -> QA -> verify.
+
+ENHANCEMENT (additive modifiers)
+  ultrawork   -- Maximum parallelization (6 concurrent agents).
+  git-ops     -- Commit management, branch ops, PR creation.
+  anti-slop   -- Post-implementation cleanup. Remove AI cruft.
+  cancel      -- Deactivate active modes.
+
+EXECUTION (primary skill)
+  build       -- Implementation work. Routes to executor/architect.
+  research    -- Multi-agent parallel investigation.
+  plan        -- Consensus planning: analyst + architect + critic.
+  analyze     -- Deep root-cause analysis with 5-Whys.
+  council     -- 4-agent multi-perspective debate.
+  red-team    -- Adversarial stress-testing from 3 attack angles.
 ```
 
-Example: `ralph build with ultrawork and anti-slop` = Parallel implementation that loops until verified done with mandatory code cleanup.
+Compose them naturally: `ralph build with ultrawork and anti-slop` = parallel implementation that loops until verified with mandatory cleanup.
 
 See [Skills Reference](docs/SKILLS.md) for all skills.
-
-### The Ralph Loop
-
-Ralph is IRA's persistence guarantee. When activated, a Stop-hook intercepts Claude's "I'm done" signal and blocks it until ISC criteria are verified complete.
-
-```
-User: "ralph: build the auth system"
-  │
-  ▼
-IRA activates ralph state
-  │
-  ▼
-Claude implements auth system
-  │
-  ▼
-Claude tries to stop → Stop hook fires
-  │
-  ├── ISC criteria all verified? → Allow stop. Clean exit.
-  │
-  └── Criteria remaining? → Block stop. Inject continuation.
-      "RALPH LOOP — Iteration 3/20. Remaining: ISC-4, ISC-7.
-       Continue working on unverified criteria."
-      │
-      ▼
-      Claude continues working → tries to stop again → repeat
-```
-
-Safety: 2-hour staleness timeout, context limit detection, user abort always respected.
-
-### ISC Quality System
-
-Every non-trivial task gets decomposed into Ideal State Criteria — atomic, binary-testable statements of what "done" looks like.
-
-**The Splitting Test** (applied to every criterion):
-1. **"And/With" test** — If it joins two verifiable things, split them
-2. **Independent failure test** — If A can pass while B fails, they're separate
-3. **Scope word test** — "All", "every" must enumerate specifics
-4. **Domain boundary test** — UI/API/data/logic = separate criteria
-
-See [Quality System](docs/QUALITY.md) for ISC methodology.
-
-### Learning Loop
-
-Every session feeds back into IRA's improvement:
-
-```
-Session → Rating (1-10) → Reflection JSONL
-                        → Failure dump (ratings 1-3)
-                        → Pattern synthesis
-                        → Algorithm adjustment
-```
-
-Learnings persist in `.ira/learning/` and inform future sessions.
 
 ---
 
 ## Keywords
 
-Natural language triggers that activate skills automatically:
+Natural language triggers detected by the `keyword-detector` hook:
 
-| Keyword | Activates | What It Does |
-|---------|-----------|-------------|
-| `ralph` | Ralph + Ultrawork | Loop until verified complete, with parallelism |
-| `autopilot` | Full pipeline | Interview → plan → build → QA → verify |
-| `ultrawork` | Parallelization | Maximum concurrent agent execution |
-| `council` | Multi-perspective | 4 agents debate from different angles |
-| `red team` | Adversarial | Stress-test a plan or decision |
-| `research` | Multi-agent research | Parallel investigation across sources |
-| `analyze` | Deep analysis | Root cause, decomposition |
-| `plan` | Architecture planning | Consensus plan with critic review |
-| `anti-slop` | Code cleanup | Remove AI-generated cruft |
+| Keyword | What Happens |
+|---------|-------------|
+| `ralph` | Activate Ralph loop + ultrawork. Loop until verified. |
+| `autopilot` | Full pipeline: analyze -> plan -> build -> QA -> verify |
+| `ultrawork` | Maximum parallelization across agents |
+| `council` | 4 agents debate from different perspectives |
+| `red team` | Adversarial stress-test from security, scale, and UX angles |
+| `research` | Multi-agent parallel investigation |
+| `plan` | Consensus architecture planning with critic review |
+| `analyze` | Deep root-cause analysis |
+| `anti-slop` | Code cleanup pass |
+| `cancel [mode]` | Cancel the named mode (e.g., "cancel ralph") |
 
-Intent filtering prevents false activation — asking "what is ralph?" won't trigger the skill.
+Intent filtering prevents false activation -- "what is ralph?" won't trigger the skill.
 
 ---
 
-## tmux Integration (Planned)
+## The Ralph Loop
 
-tmux support for persistent sessions on servers is planned:
+Ralph is IRA's persistence guarantee. A Stop-hook blocks Claude from finishing until ISC criteria are verified complete.
+
+```
+User: "ralph build the auth system"
+  |
+  v
+keyword-detector creates .ira/state/ralph-state.json
+  |
+  v
+Claude implements auth system, generates ISC criteria
+  |
+  v
+Claude tries to stop -> ralph-loop.mjs fires
+  |
+  +-- All ISC checked in work.json? -> Allow stop. Clean exit.
+  |
+  +-- Criteria remaining? -> Block stop.
+      "[RALPH LOOP -- Iteration 3/25] Continue working."
+      |
+      v
+      Claude continues -> tries to stop -> repeat
+```
+
+**Safety mechanisms:**
+- 2-hour staleness timeout -- auto-deactivates stale loops
+- Context limit stop -- never blocked
+- User abort (`Ctrl+C`) -- always respected
+- 25 iteration cap -- deactivates and reports what remains
+
+---
+
+## ISC Quality System
+
+Every non-trivial task is decomposed into Ideal State Criteria -- atomic, binary-testable statements of what "done" looks like.
+
+**The Splitting Test** (applied to every criterion):
+
+1. Contains "and"/"with" joining two verifiable things? -> Split
+2. Can part A pass while part B fails? -> Split
+3. Contains "all"/"every"? -> Enumerate specifics
+4. Crosses domain boundaries (UI/API/data)? -> One per domain
+
+See [Quality System](docs/QUALITY.md) for full ISC methodology.
+
+---
+
+## tmux Integration
+
+Persistent per-project sessions via the IRA CLI:
 
 ```bash
-# Start IRA in a tmux session
-ira tmux start [session-name]
+# Start a session for your app (defaults to cwd basename)
+bun run cli -- tmux start foundry
 
-# Attach to running session
-ira tmux attach [session-name]
+# Attach to it later
+bun run cli -- tmux attach foundry
 
-# List active sessions
-ira tmux list
+# List all IRA sessions
+bun run cli -- tmux list
 
-# Team mode — multiple agents in tmux panes
-ira team 3:executor "fix all TypeScript errors"
+# Kill a session
+bun run cli -- tmux kill foundry
+
+# Team mode: N agents in parallel tmux panes
+bun run cli -- team 3:executor "fix all TypeScript errors"
+
+# Check active modes and ISC progress
+bun run cli -- status
 ```
 
-> **Note:** tmux and CLI features require `ira-cli.ts` which is not yet implemented.
+Sessions survive disconnects. Each project gets its own isolated session with full context preservation.
+
+Requires: `tmux` (`sudo apt install tmux`)
 
 ---
 
-## Migration from PAI
+## Hooks
 
-IRA includes a migration script that harvests learnings from existing PAI installations:
+7 lifecycle hooks enforce behavior the AI cannot forget:
 
-```bash
-# Migrate local PAI
-bun run scripts/migrate-from-pai.ts --source ~/.claude
+| Event | Script | What It Does |
+|-------|--------|-------------|
+| SessionStart | `context-loader.mjs` | Loads TELOS, project memory, active modes, learning signals, user config |
+| UserPromptSubmit | `keyword-detector.mjs` | Keyword detection, complexity classification, state creation |
+| PreToolUse | `boundary-enforcer.mjs` | Blocks disallowed tools for read-only agents |
+| PostToolUse | `state-sync.mjs` | ISC progress tracking, agent identity tracking |
+| PreCompact | `context-saver.mjs` | Saves ISC progress and mode state before context compaction |
+| Stop | `ralph-loop.mjs` | Blocks premature stops when ralph is active |
+| SessionEnd | `session-harvester.mjs` | Archives mode states, captures ISC ratings, writes events |
 
-# Harvest from remote machine (SSH)
-bun run scripts/migrate-from-pai.ts --source user@server1:~/.claude --harvest-only
+All hooks fail gracefully (exit 0, output `{}`). They never crash Claude Code.
 
-# Harvest from multiple machines
-bun run scripts/migrate-from-pai.ts \
-  --source user@server1:~/.claude \
-  --source user@server2:~/.claude \
-  --source user@server3:~/.claude \
-  --merge-learnings
-```
-
-The migration script:
-- Copies memory files, learnings, reflections, and failure analysis
-- Converts PRD work history to IRA format
-- Merges learning signals from multiple machines
-- Preserves user customizations (TELOS, skills, opinions)
-- Does NOT modify the source PAI installation
-
-See [Migration Guide](docs/MIGRATION.md) for details.
+See [Hooks Reference](docs/HOOKS.md) for details.
 
 ---
 
-## Project Structure
+## Learning Loop
+
+Every session feeds back into improvement:
 
 ```
-ira/
-├── README.md              # This file
-├── CLAUDE.md              # The brain — injected into every session
-├── agents/                # 19 agent definitions (.md with YAML frontmatter)
-│   ├── architect.md
-│   ├── executor.md
-│   ├── critic.md
-│   └── ...
-├── skills/                # Composable skill definitions
-│   ├── ralph/SKILL.md
-│   ├── ultrawork/SKILL.md
-│   ├── build/SKILL.md
-│   └── ...
-├── hooks/                 # Lifecycle hook scripts
-│   ├── hooks.json         # Hook registration
-│   └── scripts/           # Hook implementations
-├── docs/                  # Extended documentation
-│   ├── ARCHITECTURE.md    # Full system design
-│   ├── AGENTS.md          # Agent reference
-│   ├── SKILLS.md          # Skills reference
-│   ├── HOOKS.md           # Hook system reference
-│   ├── QUALITY.md         # ISC and verification system
-│   ├── AUTOMATION.md      # Actions, Pipelines, Flows
-│   ├── TELOS.md           # Life-aware context system
-│   ├── LEARNING.md        # Continuous improvement loop
-│   └── MIGRATION.md       # PAI migration guide
-├── scripts/               # Migration, utilities
-│   ├── migrate-from-pai.ts# PAI → IRA data migration
-│   └── uninstall-pai.ts   # PAI removal + IRA hook registration
-├── src/                   # TypeScript infrastructure (planned)
-│   ├── config/            # Configuration and model routing
-│   ├── features/          # Complexity classification, delegation
-│   ├── hooks/             # Hook implementations
-│   └── state/             # State management
-├── .ira/                  # Runtime state (git-ignored)
-│   ├── state/             # Mode state (ralph, ultrawork)
-│   ├── work/              # PRD files per task
-│   ├── memory/            # Cross-session knowledge
-│   ├── learning/          # Ratings, reflections, failures
-│   └── events.jsonl       # Unified event log
-├── package.json
-└── tsconfig.json
+Session Work -> ISC progress captured in ratings.jsonl
+             -> Low ratings (<=3) injected as warnings on next SessionStart
+             -> Failure dumps preserved in learning/failures/
+             -> Pattern synthesis in learning/synthesis/
 ```
+
+Learnings persist in `.ira/learning/` and are loaded by `context-loader.mjs` on session start.
+
+See [Learning System](docs/LEARNING.md) for details.
 
 ---
 
 ## Configuration
 
-IRA uses a single config file at `~/.config/ira/config.jsonc`:
+Created by `setup.ts` at `~/.config/ira/config.jsonc`:
 
 ```jsonc
 {
@@ -355,22 +339,18 @@ IRA uses a single config file at `~/.config/ira/config.jsonc`:
     "executor": { "model": "claude-sonnet-4-6" },
     "architect": { "model": "claude-opus-4-6" }
   },
-
   // Feature flags
   "features": {
     "ralph": true,
     "ultrawork": true,
     "anti-slop": true,
-    "tmux": true,
-    "voice-notifications": false
+    "tmux": true
   },
-
   // TELOS integration
   "telos": {
     "enabled": true,
     "path": "~/.ira/telos/"
   },
-
   // Learning
   "learning": {
     "auto-capture-ratings": true,
@@ -381,15 +361,76 @@ IRA uses a single config file at `~/.config/ira/config.jsonc`:
 
 ---
 
+## Project Structure
+
+```
+ira/
++-- CLAUDE.md              # System prompt -- injected into every session
++-- agents/                # 19 agent definitions (.md with YAML frontmatter)
++-- skills/                # 13 skill definitions (SKILL.md per skill)
+|   +-- ralph/             # Guarantee: completion loop
+|   +-- verify/            # Guarantee: evidence-based verification
+|   +-- autopilot/         # Guarantee: full pipeline orchestration
+|   +-- ultrawork/         # Enhancement: parallelization
+|   +-- git-ops/           # Enhancement: commit management
+|   +-- anti-slop/         # Enhancement: code cleanup
+|   +-- cancel/            # Enhancement: mode deactivation
+|   +-- build/             # Execution: implementation
+|   +-- research/          # Execution: multi-agent investigation
+|   +-- plan/              # Execution: consensus planning
+|   +-- analyze/           # Execution: root-cause analysis
+|   +-- council/           # Execution: multi-perspective debate
+|   +-- red-team/          # Execution: adversarial stress-testing
++-- hooks/                 # 7 lifecycle hook scripts
+|   +-- hooks.json         # Hook registration
+|   +-- scripts/           # Hook implementations (.mjs)
++-- scripts/               # Setup, migration, CLI
+|   +-- setup.ts           # First-time installation
+|   +-- ira-cli.ts         # CLI (tmux, team, status)
+|   +-- migrate-from-pai.ts# PAI data migration
+|   +-- uninstall-pai.ts   # PAI removal + IRA hook registration
++-- docs/                  # Extended documentation
+|   +-- ARCHITECTURE.md    # System design
+|   +-- AGENTS.md          # Agent reference
+|   +-- SKILLS.md          # Skills reference
+|   +-- HOOKS.md           # Hook system
+|   +-- QUALITY.md         # ISC methodology
+|   +-- AUTOMATION.md      # Actions, Pipelines, Flows (planned)
+|   +-- TELOS.md           # Life-context system
+|   +-- LEARNING.md        # Learning loop
+|   +-- MIGRATION.md       # PAI migration guide
++-- src/                   # TypeScript infrastructure (planned)
++-- .ira/                  # Runtime state (git-ignored)
++-- package.json
++-- tsconfig.json
+```
+
+---
+
+## npm Scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `setup` | `bun run setup` | First-time installation |
+| `cli` | `bun run cli -- <cmd>` | CLI (tmux, team, status) |
+| `migrate` | `bun run migrate -- --source <path>` | PAI data migration |
+| `uninstall-pai` | `bun run uninstall-pai` | Remove PAI, install IRA |
+| `uninstall-pai:dry-run` | `bun run uninstall-pai:dry-run` | Preview PAI removal |
+| `uninstall-pai:restore` | `bun run uninstall-pai:restore` | Restore PAI from backup |
+| `test` | `bun test` | Run tests |
+| `lint` | `bun run lint` | TypeScript type check |
+
+---
+
 ## Credits
 
 IRA stands on the shoulders of two excellent projects:
 
-- **[PAI (Personal AI Infrastructure)](https://github.com/danielmiessler/Personal_AI_Infrastructure)** by Daniel Miessler — The ISC quality system, Algorithm structured execution, TELOS life context, Actions/Pipelines/Flows composability, CLI-First architecture, continuous learning loop, and the SYSTEM/USER separation pattern all originate from PAI. PAI proved that AI systems need scaffolding to be reliable.
+- **[PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure)** by Daniel Miessler -- ISC quality system, Algorithm structured execution, TELOS life context, Actions/Pipelines/Flows, continuous learning loop, SYSTEM/USER separation pattern.
 
-- **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** by Yeachan Heo — The Ralph stop-hook persistence pattern, three-layer skill composition, agent XML prompt structure with role boundaries, keyword detection with intent filtering, session-scoped state isolation, anti-slop as a first-class workflow step, and the autopilot pipeline all originate from OMC. OMC proved that prompt engineering at scale can orchestrate complex multi-agent workflows.
+- **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** by Yeachan Heo -- Ralph stop-hook persistence, three-layer skill composition, agent XML prompts with role boundaries, keyword detection with intent filtering, anti-slop as a first-class step, autopilot pipeline.
 
-IRA combines PAI's quality rigor with OMC's execution efficiency, drops the overhead neither system needs, and adds what both were missing.
+IRA combines PAI's quality rigor with OMC's execution efficiency.
 
 ---
 
