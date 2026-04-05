@@ -261,33 +261,155 @@ See [Quality System](docs/QUALITY.md) for full ISC methodology.
 
 ---
 
-## tmux Integration
+## CLI + tmux Sessions
 
-Persistent per-project sessions via the IRA CLI:
+IRA includes a CLI for managing persistent Claude Code sessions. Each project gets its own tmux session that survives disconnects, reboots, and SSH drops.
 
+**Requires:** `tmux` (`sudo apt install tmux`)
+
+### Setup
+
+Add the alias to your shell (already done if you ran setup):
 ```bash
-# Start a session for your app (defaults to cwd basename)
-bun run cli -- tmux start foundry
-
-# Attach to it later
-bun run cli -- tmux attach foundry
-
-# List all IRA sessions
-bun run cli -- tmux list
-
-# Kill a session
-bun run cli -- tmux kill foundry
-
-# Team mode: N agents in parallel tmux panes
-bun run cli -- team 3:executor "fix all TypeScript errors"
-
-# Check active modes and ISC progress
-bun run cli -- status
+# In ~/.zshrc or ~/.bashrc
+alias ira='bun run --cwd /path/to/ira cli --'
 ```
 
-Sessions survive disconnects. Each project gets its own isolated session with full context preservation.
+### Starting Sessions
 
-Requires: `tmux` (`sudo apt install tmux`)
+```bash
+# Start a session for a project (auto-names from directory)
+ira tmux start --cwd ~/projects/foundry        # creates "ira-foundry"
+ira tmux start --cwd ~/projects/refinery        # creates "ira-refinery"
+
+# Start with explicit name
+ira tmux start myapp --cwd ~/projects/myapp
+
+# Start from inside a project directory (uses dirname as session name)
+cd ~/projects/foundry && ira tmux start
+```
+
+Each session opens Claude Code in the project directory. You're auto-attached after creation.
+
+### Attaching / Reconnecting
+
+```bash
+# Reattach to a session after disconnect
+ira tmux attach foundry
+
+# If only one session exists, no name needed
+ira tmux attach
+
+# If multiple sessions exist, it lists them for you to pick
+ira tmux attach
+#   Multiple IRA sessions found. Specify one:
+#     ira-foundry
+#     ira-refinery
+#     ira-ira
+```
+
+### Detaching (without stopping)
+
+From inside a tmux session, use the standard tmux detach:
+- **`Ctrl+B` then `D`** -- detach from session (Claude keeps running)
+- **`Ctrl+B` then `D`** is the most important shortcut -- it lets you leave without killing work
+
+### Listing Sessions
+
+```bash
+ira tmux list
+
+#   SESSION                 DIRECTORY                               CREATED               STATUS
+#   ----------------------------------------------------------------...
+#   ira-foundry             /home/user/projects/foundry             4/5/2026, 10:30 AM    attached
+#   ira-refinery            /home/user/projects/refinery            4/5/2026, 11:15 AM    detached
+#   ira-ira                 /home/user/golden-claw-workspace/ira    4/5/2026, 9:00 AM     detached
+```
+
+### Stopping Sessions
+
+```bash
+# Kill a specific session
+ira tmux kill foundry
+
+# If only one session, no name needed
+ira tmux kill
+```
+
+### Team Mode (Parallel Agents)
+
+Spawn multiple Claude instances in tmux panes, each given an agent role:
+
+```bash
+# 3 executor agents fixing TypeScript errors in parallel
+ira team 3:executor "fix all TypeScript errors"
+
+# 2 debuggers investigating a crash
+ira team 2:debugger "investigate the auth timeout crash in production logs"
+
+# 4 test-engineers writing tests for different modules
+ira team 4:test-engineer "write e2e tests for the user dashboard"
+```
+
+Each pane runs `claude --prompt "[agent] your prompt"`. Panes are auto-tiled.
+
+### Checking Status
+
+```bash
+ira status
+
+#   IRA Status
+#   ========================================
+#
+#   Active Modes:
+#     ON  ralph
+#     ON  ultrawork
+#     OFF autopilot
+#
+#   Work Items:
+#     auth-system.prd.md: 18/24 ISC complete (75%)
+#
+#   Active Sessions:
+#     ira-foundry
+#     ira-refinery
+```
+
+### Quick Reference
+
+| Command | What It Does |
+|---------|-------------|
+| `ira tmux start [name] [--cwd path]` | Create and attach to a new session |
+| `ira tmux attach [name]` | Reattach to an existing session |
+| `ira tmux list` | List all IRA sessions with status |
+| `ira tmux kill [name]` | Stop and remove a session |
+| `ira team N:agent "prompt"` | N parallel Claude panes with agent role |
+| `ira status` | Show modes, ISC progress, sessions |
+| `ira help` | Full usage info |
+| `Ctrl+B, D` | Detach from session (keeps it running) |
+| `Ctrl+B, [` | Scroll up in tmux (exit with `q`) |
+| `Ctrl+B, c` | New tmux window in same session |
+| `Ctrl+B, n` / `Ctrl+B, p` | Next / previous tmux window |
+
+### Typical Workflow
+
+```bash
+# Morning: start sessions for your projects
+ira tmux start foundry --cwd ~/projects/foundry
+# ... work with Claude on foundry ...
+
+# Switch to another project (detach first)
+# Ctrl+B, D
+ira tmux start refinery --cwd ~/projects/refinery
+
+# Later: reconnect to foundry where you left off
+ira tmux attach foundry
+
+# End of day: check what's running
+ira tmux list
+
+# Clean up finished work
+ira tmux kill refinery
+```
 
 ---
 
