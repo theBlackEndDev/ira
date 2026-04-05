@@ -79,7 +79,7 @@ function cmdTmuxStart(args: string[]) {
   if (!claudeInstalled()) die("claude CLI not found. Install Claude Code first.");
 
   let sessionName: string | undefined;
-  let cwd = process.cwd();
+  let cwd = process.env.IRA_CALLER_CWD || process.cwd();
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--cwd" && args[i + 1]) {
@@ -275,8 +275,9 @@ function cmdTeam(args: string[]) {
 }
 
 function cmdStatus() {
-  const stateDir = join(process.cwd(), ".ira", "state");
-  const workDir = join(process.cwd(), ".ira", "work");
+  const base = process.env.IRA_CALLER_CWD || process.cwd();
+  const stateDir = join(base, ".ira", "state");
+  const workDir = join(base, ".ira", "work");
 
   console.log("\n  IRA Status");
   console.log("  " + "=".repeat(40));
