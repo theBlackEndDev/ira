@@ -6,9 +6,14 @@
  * 1. Creates .ira/ directory structure in cwd
  * 2. Generates .ira/boundaries.json from agent frontmatter
  * 3. Registers IRA hooks in ~/.claude/settings.json
- * 4. Symlinks ~/.claude/CLAUDE.md to IRA's CLAUDE.md
- * 5. Creates default config at ~/.config/ira/config.jsonc
- * 6. Runs bun install if node_modules doesn't exist
+ * 4. Rebrands PAI→IRA in settings.json (env vars, config, docs)
+ * 5. Rebrands PAI→IRA in statusline script (if present)
+ * 6. Migrates .env from ~/.config/PAI/ to ~/.config/ira/
+ * 7. Symlinks ~/.claude/CLAUDE.md to IRA's CLAUDE.md
+ * 8. Creates default config at ~/.config/ira/config.jsonc
+ * 9. Runs bun install if node_modules doesn't exist
+ *
+ * Cross-platform: macOS and Linux (Ubuntu/Debian, Fedora, Arch)
  *
  * Usage:
  *   bun run scripts/setup.ts [options]
@@ -22,6 +27,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, lstatSync, rmSync, 
 import { join, resolve, dirname } from "path";
 import { execSync } from "child_process";
 import { homedir } from "os";
+import { rebrandSettingsJson, rebrandStatusline, migrateConfigEnv } from "./lib/rebrand.ts";
 
 const HOME = homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
@@ -70,9 +76,12 @@ What this does:
   1. Creates .ira/ directory structure in the current working directory
   2. Generates .ira/boundaries.json from agents/*.md frontmatter
   3. Registers IRA hooks in ~/.claude/settings.json
-  4. Symlinks ~/.claude/CLAUDE.md to IRA's CLAUDE.md
-  5. Creates default config at ~/.config/ira/config.jsonc
-  6. Runs bun install if node_modules/ doesn't exist
+  4. Rebrands PAI→IRA in settings.json (env vars, config, docs)
+  5. Rebrands PAI→IRA in statusline script (if present)
+  6. Migrates .env from ~/.config/PAI/ to ~/.config/ira/
+  7. Symlinks ~/.claude/CLAUDE.md to IRA's CLAUDE.md
+  8. Creates default config at ~/.config/ira/config.jsonc
+  9. Runs bun install if node_modules/ doesn't exist
 `);
 }
 
@@ -387,18 +396,33 @@ async function main() {
   registerHooks(args.dryRun);
   console.log("");
 
-  // Step 4
-  console.log("Step 4: Symlinking CLAUDE.md...");
+  // Step 4: Rebrand PAI→IRA in settings.json (idempotent — skips if already clean)
+  console.log("Step 4: Rebranding settings.json (PAI→IRA)...");
+  rebrandSettingsJson(args.dryRun, logAction);
+  console.log("");
+
+  // Step 5: Rebrand statusline script (idempotent — skips if not present or already clean)
+  console.log("Step 5: Updating statusline...");
+  rebrandStatusline(args.dryRun, logAction);
+  console.log("");
+
+  // Step 6: Migrate .env from PAI config to IRA config
+  console.log("Step 6: Migrating config .env...");
+  migrateConfigEnv(args.dryRun, logAction);
+  console.log("");
+
+  // Step 7
+  console.log("Step 7: Symlinking CLAUDE.md...");
   symlinkClaudeMd(args.dryRun);
   console.log("");
 
-  // Step 5
-  console.log("Step 5: Creating default config...");
+  // Step 8
+  console.log("Step 8: Creating default config...");
   createDefaultConfig(args.dryRun);
   console.log("");
 
-  // Step 6
-  console.log("Step 6: Checking dependencies...");
+  // Step 9
+  console.log("Step 9: Checking dependencies...");
   ensureDependencies(args.dryRun);
   console.log("");
 
@@ -413,6 +437,7 @@ async function main() {
     console.log("  Directory:  .ira/ created in " + process.cwd());
     console.log("  Boundaries: .ira/boundaries.json generated");
     console.log("  Hooks:      Registered in ~/.claude/settings.json");
+    console.log("  Settings:   PAI references rebranded to IRA");
     console.log("  CLAUDE.md:  Symlinked to IRA");
     console.log("  Config:     ~/.config/ira/config.jsonc");
     console.log("");

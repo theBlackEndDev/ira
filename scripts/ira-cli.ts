@@ -15,6 +15,7 @@
 import { execSync, spawnSync } from "child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { basename, join, resolve } from "path";
+import { platformInstallHint } from "./lib/rebrand.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,7 +76,7 @@ function prefixName(name: string): string {
 // ---------------------------------------------------------------------------
 
 function cmdTmuxStart(args: string[]) {
-  if (!tmuxInstalled()) die("tmux is required. Install with: sudo apt install tmux");
+  if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
   if (!claudeInstalled()) die("claude CLI not found. Install Claude Code first.");
 
   let sessionName: string | undefined;
@@ -111,7 +112,7 @@ function cmdTmuxStart(args: string[]) {
 }
 
 function cmdTmuxAttach(args: string[]) {
-  if (!tmuxInstalled()) die("tmux is required. Install with: sudo apt install tmux");
+  if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
 
   const sessions = iraSessions();
 
@@ -148,7 +149,7 @@ function cmdTmuxAttach(args: string[]) {
 }
 
 function cmdTmuxList() {
-  if (!tmuxInstalled()) die("tmux is required. Install with: sudo apt install tmux");
+  if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
 
   const result = spawnSync(
     "tmux",
@@ -186,7 +187,7 @@ function cmdTmuxList() {
 }
 
 function cmdTmuxKill(args: string[]) {
-  if (!tmuxInstalled()) die("tmux is required. Install with: sudo apt install tmux");
+  if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
 
   const sessions = iraSessions();
 
@@ -230,7 +231,7 @@ function cmdTmuxKill(args: string[]) {
 }
 
 function cmdTeam(args: string[]) {
-  if (!tmuxInstalled()) die("tmux is required. Install with: sudo apt install tmux");
+  if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
   if (!claudeInstalled()) die("claude CLI not found. Install Claude Code first.");
 
   // Parse N:agent

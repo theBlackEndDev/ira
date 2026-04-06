@@ -6,7 +6,8 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "dist",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "rootDir": ".",
     "types": ["bun-types"],  // requires: bun install
     "paths": {

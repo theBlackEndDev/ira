@@ -7,10 +7,14 @@
  * 2. Backs up ~/.claude/CLAUDE.md
  * 3. Removes PAI system files
  * 4. Replaces ~/.claude/CLAUDE.md with IRA's version (symlink)
- * 5. Removes PAI hooks from settings.json
- * 6. Registers IRA hooks in settings.json
- * 7. Preserves ~/.claude/MEMORY/ as archive
- * 8. Preserves ~/.claude/skills/ (user may still want them)
+ * 5. Removes PAI hooks from settings.json + registers IRA hooks
+ * 6. Rebrands PAI→IRA in settings.json (env vars, config, docs)
+ * 7. Rebrands PAI→IRA in statusline script
+ * 8. Migrates .env from ~/.config/PAI/ to ~/.config/ira/
+ * 9. Preserves ~/.claude/MEMORY/ as archive
+ * 10. Preserves ~/.claude/skills/ (user may still want them)
+ *
+ * Cross-platform: macOS and Linux (Ubuntu/Debian, Fedora, Arch)
  *
  * Safety:
  * - Creates timestamped backup before any destructive action
@@ -32,6 +36,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync
 import { join, resolve, dirname } from "path";
 import { execSync } from "child_process";
 import { homedir } from "os";
+import { rebrandSettingsJson, rebrandStatusline, migrateConfigEnv } from "./lib/rebrand.ts";
 
 const HOME = homedir();
 const CLAUDE_DIR = join(HOME, ".claude");
@@ -93,10 +98,12 @@ What this does:
   2. Backs up ~/.claude/CLAUDE.md → included in backup
   3. Removes ~/.claude/PAI/ (system files only)
   4. Replaces ~/.claude/CLAUDE.md with symlink to IRA's CLAUDE.md
-  5. Removes PAI hooks from settings.json
-  6. Registers IRA hooks in settings.json
-  7. Preserves ~/.claude/MEMORY/ (already migrated by migrate-from-pai.ts)
-  8. Optionally preserves ~/.claude/skills/ (--keep-skills)
+  5. Removes PAI hooks, registers IRA hooks in settings.json
+  6. Rebrands PAI→IRA in settings.json (env vars, config section, docs)
+  7. Rebrands PAI→IRA in statusline script (if present)
+  8. Migrates .env from ~/.config/PAI/ to ~/.config/ira/
+  9. Preserves ~/.claude/MEMORY/ (already migrated by migrate-from-pai.ts)
+  10. Optionally preserves ~/.claude/skills/ (--keep-skills)
 
 Rollback:
   bun run scripts/uninstall-pai.ts --restore
@@ -437,6 +444,21 @@ async function main() {
   // Step 5: Clean startup files
   console.log("Step 5: Cleaning startup configuration...");
   removeLoadAtStartup(args.dryRun);
+  console.log("");
+
+  // Step 6: Rebrand remaining PAI references in settings.json
+  console.log("Step 6: Rebranding settings.json (PAI→IRA)...");
+  rebrandSettingsJson(args.dryRun, logAction);
+  console.log("");
+
+  // Step 7: Rebrand statusline script
+  console.log("Step 7: Updating statusline...");
+  rebrandStatusline(args.dryRun, logAction);
+  console.log("");
+
+  // Step 8: Migrate .env from PAI config to IRA config
+  console.log("Step 8: Migrating config .env...");
+  migrateConfigEnv(args.dryRun, logAction);
   console.log("");
 
   // Summary
