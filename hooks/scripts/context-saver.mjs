@@ -1,8 +1,19 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { homedir } from 'os';
 
-const MEMORY_PROJECT = '/home/hus/golden-claw-workspace/orchestrator/projects/ira-memory';
+function getMemoryProject() {
+  if (process.env.IRA_MEMORY_PROJECT) return process.env.IRA_MEMORY_PROJECT;
+  try {
+    const configPath = join(homedir(), '.config', 'ira', 'config.jsonc');
+    const raw = readFileSync(configPath, 'utf-8').replace(/\/\/.*/g, '').replace(/,\s*([}\]])/g, '$1');
+    const config = JSON.parse(raw);
+    return config.integrations?.memoryProject || null;
+  } catch { return null; }
+}
+
+const MEMORY_PROJECT = getMemoryProject();
 
 try {
   const input = readFileSync('/dev/stdin', 'utf-8');
@@ -65,20 +76,22 @@ try {
   writeFileSync(notepadFile, notepadParts.join('\n\n'));
 
   // ─── IRA Memory DB: Store compaction checkpoint ────────────────
-  try {
-    const memSessionFile = join(stateDir, 'memory-session.json');
-    if (existsSync(memSessionFile)) {
-      const memSession = JSON.parse(readFileSync(memSessionFile, 'utf-8'));
-      if (memSession.sessionId) {
-        const checkpoint = notepadParts.join('\n\n').slice(0, 5000);
-        execSync(
-          `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts message-store ${memSession.sessionId} system ${JSON.stringify('[COMPACTION CHECKPOINT] ' + checkpoint)}`,
-          { timeout: 5000, encoding: 'utf-8' }
-        );
+  if (MEMORY_PROJECT) {
+    try {
+      const memSessionFile = join(stateDir, 'memory-session.json');
+      if (existsSync(memSessionFile)) {
+        const memSession = JSON.parse(readFileSync(memSessionFile, 'utf-8'));
+        if (memSession.sessionId) {
+          const checkpoint = notepadParts.join('\n\n').slice(0, 5000);
+          execSync(
+            `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts message-store ${memSession.sessionId} system ${JSON.stringify('[COMPACTION CHECKPOINT] ' + checkpoint)}`,
+            { timeout: 5000, encoding: 'utf-8' }
+          );
+        }
       }
+    } catch {
+      // DB failures are non-fatal
     }
-  } catch {
-    // DB failures are non-fatal
   }
 
   console.log(JSON.stringify({}));

@@ -1,9 +1,20 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { homedir } from 'os';
 
-const BRIDGE = '/home/hus/golden-claw-workspace/orchestrator/projects/ira-memory/src/hook-bridge.ts';
-const MEMORY_PROJECT = '/home/hus/golden-claw-workspace/orchestrator/projects/ira-memory';
+function getMemoryProject() {
+  if (process.env.IRA_MEMORY_PROJECT) return process.env.IRA_MEMORY_PROJECT;
+  try {
+    const configPath = join(homedir(), '.config', 'ira', 'config.jsonc');
+    const raw = readFileSync(configPath, 'utf-8').replace(/\/\/.*/g, '').replace(/,\s*([}\]])/g, '$1');
+    const config = JSON.parse(raw);
+    return config.integrations?.memoryProject || null;
+  } catch { return null; }
+}
+
+const MEMORY_PROJECT = getMemoryProject();
+const BRIDGE = MEMORY_PROJECT ? join(MEMORY_PROJECT, 'src', 'hook-bridge.ts') : null;
 
 try {
   const input = readFileSync('/dev/stdin', 'utf-8');
@@ -160,35 +171,33 @@ try {
   }
 
   // ─── IRA Memory DB: Open session + recall context ─────────────
-  try {
-    // Open a new DB session
-    const sessionId = execSync(
-      `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts session-open cli "Claude Code Session"`,
-      { timeout: 4000, encoding: 'utf-8' }
-    ).trim();
-
-    if (sessionId) {
-      // Store session ID for other hooks to use
-      const stateDir = join(base, '.ira', 'state');
-      mkdirSync(stateDir, { recursive: true });
-      writeFileSync(
-        join(stateDir, 'memory-session.json'),
-        JSON.stringify({ sessionId, startedAt: new Date().toISOString() })
-      );
-
-      // Recall relevant context from DB
-      const dbContext = execSync(
-        `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts recall-context ${sessionId}`,
+  if (MEMORY_PROJECT) {
+    try {
+      const sessionId = execSync(
+        `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts session-open cli "Claude Code Session"`,
         { timeout: 4000, encoding: 'utf-8' }
       ).trim();
 
-      if (dbContext) {
-        contextParts.push(dbContext);
+      if (sessionId) {
+        const stateDir = join(base, '.ira', 'state');
+        mkdirSync(stateDir, { recursive: true });
+        writeFileSync(
+          join(stateDir, 'memory-session.json'),
+          JSON.stringify({ sessionId, startedAt: new Date().toISOString() })
+        );
+
+        const dbContext = execSync(
+          `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts recall-context ${sessionId}`,
+          { timeout: 4000, encoding: 'utf-8' }
+        ).trim();
+
+        if (dbContext) {
+          contextParts.push(dbContext);
+        }
       }
+    } catch (dbErr) {
+      // DB failures are non-fatal
     }
-  } catch (dbErr) {
-    // DB failures are non-fatal — don't block session startup
-    // console.error('[context-loader] Memory DB error:', dbErr.message);
   }
 
   if (contextParts.length === 0) {

@@ -491,6 +491,12 @@ Created by `setup.ts` at `~/.config/ira/config.jsonc`:
   "learning": {
     "auto-capture-ratings": true,
     "failure-dump-threshold": 3
+  },
+  // External integrations
+  "integrations": {
+    // Absolute path to ira-memory project (enables DB-backed session memory)
+    // Can also be set via IRA_MEMORY_PROJECT env var
+    "memoryProject": null
   }
 }
 ```
