@@ -19,6 +19,26 @@ Analyze performs deep root-cause analysis on complex issues by coordinating mult
 
 ## How It Works
 
+### Phase 0: Reproduction Protocol
+Before investigating, attempt to reproduce the bug:
+
+1. **Parse the bug report** into: expected behavior, actual behavior, reproduction steps
+2. **Attempt reproduction** following the stated steps exactly
+3. **If reproduces:** Capture evidence (error output, logs, screenshots) and proceed to Phase 1
+4. **If does not reproduce:** Try variations (different data, timing, environment)
+5. **After 3 attempts**, issue a structured verdict:
+
+| Verdict | Meaning | Next Step |
+|---------|---------|-----------|
+| `confirmed` | Reproduced consistently with evidence | Proceed to Phase 1 |
+| `cannot-reproduce` | Followed all steps, cannot trigger | Report with environment details |
+| `not-a-bug` | Behavior is correct per spec | Explain why with references |
+| `environmental` | Only occurs under specific conditions | Document the conditions |
+| `data-issue` | Caused by specific data state | Identify the data pattern |
+| `user-error` | Expectation doesn't match intended behavior | Clarify intended behavior |
+
+**Only `confirmed` proceeds to Phase 1.** All other verdicts produce a final report and stop.
+
 ### Phase 1: Gather Evidence
 Two agents investigate in parallel:
 

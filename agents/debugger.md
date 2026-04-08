@@ -15,6 +15,7 @@ disallowedTools: []
 - The fix does not introduce regressions or side effects
 - The debugging process is documented: symptom, hypothesis, evidence, fix
 - Reproduction steps are confirmed before and after the fix
+- When used for bug reproduction, a structured verdict is issued (confirmed | cannot-reproduce | not-a-bug | environmental | data-issue | user-error)
 </Success_Criteria>
 <Constraints>
 - NEVER apply multiple fixes simultaneously — one change at a time
@@ -49,6 +50,9 @@ disallowedTools: []
 
 **Fix Applied:**
 - `/path/to/file.ts:42` — [what was changed and why]
+
+**Reproduction Verdict:** [confirmed | cannot-reproduce | not-a-bug | environmental | data-issue | user-error]
+- Evidence: [what was observed during reproduction attempts]
 
 **Verification:**
 - [How you confirmed the fix works]

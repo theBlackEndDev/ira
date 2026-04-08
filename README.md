@@ -10,8 +10,8 @@ IRA combines the best of [PAI](https://github.com/danielmiessler/Personal_AI_Inf
 
 - **Zero ceremony for simple tasks** -- No mode selection. Just work.
 - **Full rigor for complex tasks** -- Automatic complexity classification scales ISC criteria, reviewer separation, and verification loops.
-- **19 specialized agents** with static model routing (Haiku / Sonnet / Opus)
-- **13 composable skills** in three layers (Guarantee + Enhancement + Execution)
+- **23 specialized agents** with static model routing (Haiku / Sonnet / Opus)
+- **17 composable skills** in three layers (Guarantee + Enhancement + Execution)
 - **Ralph loop** -- Stop-hook blocks completion until ISC criteria are verified done
 - **Autopilot pipeline** -- Analyze -> Plan -> Build -> QA -> Verify, fully automated
 - **ISC quality system** -- Atomic, binary-testable Ideal State Criteria
@@ -91,15 +91,16 @@ User Input
                       |
                       v
 +-----------------------------------------------+
-|  AGENTS (19 specialists)                       |
+|  AGENTS (23 specialists)                       |
 |                                                |
 |  Tier 1 Haiku:  scout, formatter, explorer     |
 |  Tier 2 Sonnet: executor, debugger, tester,    |
 |    designer, content-writer, social-ops,       |
-|    git-ops, security-reviewer, code-reviewer   |
+|    git-ops, security-reviewer, code-reviewer,  |
+|    perf-reviewer, test-reviewer, pr-resolver   |
 |  Tier 3 Opus:   architect, analyst, critic,    |
 |    brand-strategist, scientist, planner,       |
-|    verifier                                    |
+|    verifier, review-synthesizer                |
 +---------------------+-------------------------+
                       |
                       v
@@ -108,9 +109,10 @@ User Input
 |                                                |
 |  Guarantee:   ralph, verify, autopilot         |
 |  Enhancement: ultrawork, git-ops, anti-slop,   |
-|               cancel                           |
+|               compound, cancel                 |
 |  Execution:   build, research, plan, analyze,  |
-|               council, red-team                |
+|               council, red-team, review,       |
+|               brainstorm, pr-resolve           |
 +---------------------+-------------------------+
                       |
                       v
@@ -133,7 +135,7 @@ See [Architecture Deep Dive](docs/ARCHITECTURE.md) for full system design.
 
 ## Agents
 
-19 agents across 3 model tiers. Role boundaries enforced by the `boundary-enforcer` hook -- agents with `disallowedTools: ["Write", "Edit"]` are blocked from writing code.
+23 agents across 3 model tiers. Role boundaries enforced by the `boundary-enforcer` hook -- agents with `disallowedTools: ["Write", "Edit"]` are blocked from writing code.
 
 | Agent | Tier | Model | Role | Read-Only |
 |-------|------|-------|------|-----------|
@@ -149,6 +151,9 @@ See [Architecture Deep Dive](docs/ARCHITECTURE.md) for full system design.
 | git-ops | 2 | Sonnet | Git operations, PR management | No |
 | security-reviewer | 2 | Sonnet | Vulnerability scanning, OWASP | No |
 | code-reviewer | 2 | Sonnet | Quality review, patterns | Yes |
+| perf-reviewer | 2 | Sonnet | Performance review (N+1, I/O, complexity) | No |
+| test-reviewer | 2 | Sonnet | Test adequacy (coverage, assertions, mocks) | No |
+| pr-resolver | 2 | Sonnet | PR feedback triage and resolution | No |
 | architect | 3 | Opus | System design, decisions | Yes |
 | analyst | 3 | Opus | Requirements, ISC decomposition | Yes |
 | critic | 3 | Opus | Plan validation, adversarial review | Yes |
@@ -156,6 +161,7 @@ See [Architecture Deep Dive](docs/ARCHITECTURE.md) for full system design.
 | scientist | 3 | Opus | Hypothesis testing, experiments | Yes |
 | planner | 3 | Opus | Implementation planning | No |
 | verifier | 3 | Opus | Acceptance verification, evidence | Yes |
+| review-synthesizer | 3 | Opus | Aggregate multi-reviewer findings | Yes |
 
 See [Agent Reference](docs/AGENTS.md) for full definitions.
 
@@ -163,7 +169,7 @@ See [Agent Reference](docs/AGENTS.md) for full definitions.
 
 ## Skills
 
-13 skills in three composable layers:
+17 skills in three composable layers:
 
 ```
 GUARANTEE (wraps everything)
@@ -175,15 +181,19 @@ ENHANCEMENT (additive modifiers)
   ultrawork   -- Maximum parallelization (6 concurrent agents).
   git-ops     -- Commit management, branch ops, PR creation.
   anti-slop   -- Post-implementation cleanup. Remove AI cruft.
+  compound    -- Extract reusable solution docs from session work.
   cancel      -- Deactivate active modes.
 
 EXECUTION (primary skill)
   build       -- Implementation work. Routes to executor/architect.
   research    -- Multi-agent parallel investigation.
   plan        -- Consensus planning: analyst + architect + critic.
-  analyze     -- Deep root-cause analysis with 5-Whys.
+  analyze     -- Deep root-cause analysis with 5-Whys + reproduction protocol.
   council     -- 4-agent multi-perspective debate.
   red-team    -- Adversarial stress-testing from 3 attack angles.
+  review      -- Multi-lens code review (4 parallel reviewers + synthesis).
+  brainstorm  -- Pressure-test requirements before planning.
+  pr-resolve  -- Triage and fix PR review feedback.
 ```
 
 Compose them naturally: `ralph build with ultrawork and anti-slop` = parallel implementation that loops until verified with mandatory cleanup.
@@ -207,6 +217,10 @@ Natural language triggers detected by the `keyword-detector` hook:
 | `plan` | Consensus architecture planning with critic review |
 | `analyze` | Deep root-cause analysis |
 | `anti-slop` | Code cleanup pass |
+| `review` | Multi-lens code review (4 parallel reviewers + synthesis) |
+| `brainstorm` | Pressure-test requirements before planning |
+| `pr resolve` | Triage and fix PR review feedback |
+| `compound` | Extract reusable solution doc from session |
 | `cancel [mode]` | Cancel the named mode (e.g., "cancel ralph") |
 
 Intent filtering prevents false activation -- "what is ralph?" won't trigger the skill.
@@ -488,14 +502,15 @@ Created by `setup.ts` at `~/.config/ira/config.jsonc`:
 ```
 ira/
 +-- CLAUDE.md              # System prompt -- injected into every session
-+-- agents/                # 19 agent definitions (.md with YAML frontmatter)
-+-- skills/                # 13 skill definitions (SKILL.md per skill)
++-- agents/                # 23 agent definitions (.md with YAML frontmatter)
++-- skills/                # 17 skill definitions (SKILL.md per skill)
 |   +-- ralph/             # Guarantee: completion loop
 |   +-- verify/            # Guarantee: evidence-based verification
 |   +-- autopilot/         # Guarantee: full pipeline orchestration
 |   +-- ultrawork/         # Enhancement: parallelization
 |   +-- git-ops/           # Enhancement: commit management
 |   +-- anti-slop/         # Enhancement: code cleanup
+|   +-- compound/          # Enhancement: solution documentation
 |   +-- cancel/            # Enhancement: mode deactivation
 |   +-- build/             # Execution: implementation
 |   +-- research/          # Execution: multi-agent investigation
@@ -503,6 +518,9 @@ ira/
 |   +-- analyze/           # Execution: root-cause analysis
 |   +-- council/           # Execution: multi-perspective debate
 |   +-- red-team/          # Execution: adversarial stress-testing
+|   +-- review/            # Execution: multi-lens code review
+|   +-- brainstorm/        # Execution: requirements pressure-testing
+|   +-- pr-resolve/        # Execution: PR feedback resolution
 +-- hooks/                 # 7 lifecycle hook scripts
 |   +-- hooks.json         # Hook registration
 |   +-- scripts/           # Hook implementations (.mjs)

@@ -43,6 +43,10 @@ try {
     { name: 'RESEARCH',      pattern: /\bresearch\b/ },
     { name: 'PLAN',          pattern: /\bplan\b/ },
     { name: 'ANALYZE',       pattern: /\banalyze\b/ },
+    { name: 'REVIEW',        pattern: /\breview\b/ },
+    { name: 'BRAINSTORM',   pattern: /\bbrainstorm\b/ },
+    { name: 'PR-RESOLVE',   pattern: /\b(pr[\s-]?resolve|resolve[\s-]?pr)\b/ },
+    { name: 'COMPOUND',     pattern: /\bcompound\b/ },
     { name: 'ANTI-SLOP',     pattern: /\banti[\s-]?slop\b/ },
     { name: 'BUILD',         pattern: /\bbuild\b/ },
   ];

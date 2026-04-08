@@ -1,6 +1,6 @@
 # IRA Agent Reference
 
-> 19 specialized agents with static model routing and enforced role boundaries.
+> 23 specialized agents with static model routing and enforced role boundaries.
 
 ---
 
@@ -27,6 +27,9 @@
 | **git-ops** | Git operations, PRs, commits | No code changes, only git operations |
 | **security-reviewer** | Vulnerability scanning, OWASP | Reports issues, doesn't fix them |
 | **code-reviewer** | Quality review, patterns | Suggests changes, doesn't implement |
+| **perf-reviewer** | Performance review (N+1, I/O, complexity) | Reports issues, doesn't fix them |
+| **test-reviewer** | Test adequacy (coverage, assertions, mocks) | Reports gaps, doesn't write tests |
+| **pr-resolver** | PR feedback triage and resolution | Fixes valid feedback, drafts responses |
 
 ### Tier 3 — Opus (Deep Reasoning)
 
@@ -39,6 +42,7 @@
 | **scientist** | Hypothesis testing, experiment design | Designs experiments, doesn't run them |
 | **planner** | Implementation planning, sequencing | Plans only, does not implement |
 | **verifier** | Acceptance verification, evidence | Verifies against ISC, requires proof |
+| **review-synthesizer** | Aggregate multi-reviewer findings | **READ-ONLY** — deduplicates and prioritizes |
 
 ---
 
@@ -46,7 +50,7 @@
 
 **Strictly enforced by the boundary-enforcer hook:**
 
-- architect + critic: `disallowedTools: ["Write", "Edit"]`
+- architect + critic + review-synthesizer: `disallowedTools: ["Write", "Edit"]`
 - executor: Must NOT make architecture decisions — escalate to architect
 - Author ≠ Reviewer: The implementing agent never verifies its own work
 

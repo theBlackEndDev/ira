@@ -1,5 +1,8 @@
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
+
+const MEMORY_PROJECT = '/home/hus/golden-claw-workspace/orchestrator/projects/ira-memory';
 
 try {
   const input = readFileSync('/dev/stdin', 'utf-8');
@@ -89,6 +92,23 @@ try {
   // Append to events log
   const eventsFile = join(base, '.ira', 'events.jsonl');
   appendFileSync(eventsFile, JSON.stringify(sessionMeta) + '\n');
+
+  // ─── IRA Memory DB: Close session ─────────────────────────────
+  try {
+    const memSessionFile = join(stateDir, 'memory-session.json');
+    if (existsSync(memSessionFile)) {
+      const memSession = JSON.parse(readFileSync(memSessionFile, 'utf-8'));
+      if (memSession.sessionId) {
+        execSync(
+          `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts session-close ${memSession.sessionId}`,
+          { timeout: 25000, encoding: 'utf-8' }
+        );
+        unlinkSync(memSessionFile);
+      }
+    }
+  } catch (dbErr) {
+    // DB failures are non-fatal
+  }
 
   console.log(JSON.stringify({}));
 } catch (err) {

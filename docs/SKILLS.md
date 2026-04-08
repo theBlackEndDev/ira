@@ -48,6 +48,10 @@ Example: `ralph build with ultrawork and anti-slop`
 **Trigger:** "git-ops" keyword
 **Effect:** Commit management, branch operations, PR creation with proper descriptions.
 
+### compound
+**Trigger:** "compound" keyword, or auto-suggested by session-harvester
+**Effect:** Extracts reusable solution docs from session work into `docs/solutions/`. Uses analyst + architect + explorer.
+
 ---
 
 ## Execution Layer
@@ -72,6 +76,18 @@ Example: `ralph build with ultrawork and anti-slop`
 **Trigger:** "council" keyword
 **Effect:** Multi-perspective debate. 4 agents argue from different angles: pragmatist, innovator, skeptic, user-advocate.
 
+### review
+**Trigger:** "review" keyword
+**Effect:** Multi-lens code review. Dispatches 4 parallel reviewers (code, security, perf, test) via ultrawork, then synthesizes into P0-P3 prioritized report.
+
+### brainstorm
+**Trigger:** "brainstorm" keyword
+**Effect:** Pre-planning requirements exploration. Pressure-tests problem framing, generates alternatives across 4 frames, produces requirements doc for plan skill.
+
+### pr-resolve
+**Trigger:** "pr resolve" or "resolve pr" keyword
+**Effect:** Systematic PR feedback resolution. Triages threads, clusters related comments, applies fixes, drafts responses. All changes staged for user approval.
+
 ---
 
 ## Keyword Activation
@@ -80,7 +96,7 @@ Keywords detected by the `keyword-detector.mjs` hook at UserPromptSubmit time.
 
 **Intent filtering:** Asking "what is ralph?" does NOT activate ralph. Only imperative usage triggers activation.
 
-**Priority:** cancel > ralph > autopilot > ultrawork > council > red-team > research > plan > analyze > anti-slop > build
+**Priority:** cancel > ralph > autopilot > ultrawork > council > red-team > research > plan > analyze > review > brainstorm > pr-resolve > compound > anti-slop > build
 
 
 ---

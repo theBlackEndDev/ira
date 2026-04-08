@@ -55,7 +55,7 @@ Classification happens in the `keyword-detector.mjs` hook at UserPromptSubmit ti
 
 ### 3. Agent Layer (Execution)
 
-19 agents organized by model tier. Each agent is a markdown file with:
+23 agents organized by model tier. Each agent is a markdown file with:
 - YAML frontmatter (name, model, tier, disallowed tools)
 - XML prompt body (Role, Constraints, Success Criteria, Failure Modes, Final Checklist)
 
@@ -78,6 +78,7 @@ ENHANCEMENT (0-N additive)
   └── ultrawork: Parallel agent execution
   └── git-ops: Commit management
   └── anti-slop: Code cleanup pass
+  └── compound: Solution documentation
 
 EXECUTION (primary behavior)
   └── build: Implementation
@@ -85,6 +86,9 @@ EXECUTION (primary behavior)
   └── plan: Architecture planning
   └── analyze: Root cause analysis
   └── council: Multi-perspective debate
+  └── review: Multi-lens code review
+  └── brainstorm: Requirements pressure-testing
+  └── pr-resolve: PR feedback resolution
 ```
 
 ### 5. Quality Layer (ISC)

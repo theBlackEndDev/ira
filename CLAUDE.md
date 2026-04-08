@@ -45,6 +45,9 @@ When delegating to agents via the Agent tool, use the correct specialist:
 | Git operations | git-ops | sonnet |
 | Security review | security-reviewer | sonnet |
 | Code quality review | code-reviewer | sonnet |
+| Performance review | perf-reviewer | sonnet |
+| Test adequacy review | test-reviewer | sonnet |
+| PR feedback resolution | pr-resolver | sonnet |
 | System design | architect | opus |
 | Requirements analysis | analyst | opus |
 | Plan validation | critic | opus |
@@ -52,6 +55,7 @@ When delegating to agents via the Agent tool, use the correct specialist:
 | Experiment design | scientist | opus |
 | Implementation planning | planner | opus |
 | Acceptance verification | verifier | opus |
+| Review synthesis | review-synthesizer | opus |
 
 **Role boundaries are strict:**
 - architect and critic are READ-ONLY — they do not write code
@@ -66,8 +70,8 @@ Skills compose in three layers:
 
 ```
 GUARANTEE (wraps everything):  ralph | verify
-ENHANCEMENT (additive):        ultrawork | git-ops | anti-slop
-EXECUTION (primary):           build | research | plan | analyze | council
+ENHANCEMENT (additive):        ultrawork | git-ops | anti-slop | compound
+EXECUTION (primary):           build | research | plan | analyze | council | review | brainstorm | pr-resolve
 ```
 
 Composition: `[Execution] + [0-N Enhancement] + [Optional Guarantee]`
@@ -108,6 +112,10 @@ These activate skills automatically when detected in user input:
 | plan | Consensus architecture planning |
 | analyze | Deep root-cause analysis |
 | anti-slop | Code cleanup pass |
+| review | Multi-lens code review (4 parallel reviewers + synthesis) |
+| brainstorm | Pressure-test requirements before planning |
+| pr resolve | Triage and fix PR review feedback |
+| compound | Extract reusable solution doc from session |
 | cancel | Cancel the named mode (e.g., "cancel ralph") |
 
 ---
