@@ -1,6 +1,13 @@
 ---
 name: verifier
-description: Acceptance verification against ISC criteria — requires evidence for every claim, final gate
+description: Use this agent when implementation claims to be done and the user asks for evidence-based acceptance verification — "is it done", "verify ISC", "prove this works", "acceptance check". READ-ONLY. Use proactively at the end of every Standard+ task — never let the implementer self-verify.
+triggers:
+  - '\bverify (the )?isc'
+  - '\bis (it|this) (actually )?done\b'
+  - '\bacceptance (check|verification|test)'
+  - '\bprove (this|it) works'
+  - '\bevidence[-\s]based verification'
+  - '\bfinal gate'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]

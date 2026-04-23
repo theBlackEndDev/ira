@@ -4,7 +4,8 @@
       { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/context-loader.mjs", "timeout": 5000 }] }
     ],
     "UserPromptSubmit": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/keyword-detector.mjs", "timeout": 5000 }] }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/keyword-detector.mjs", "timeout": 5000 }] },
+      { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/agent-router.mjs",   "timeout": 15000 }] }
     ],
     "PreToolUse": [
       { "matcher": "", "hooks": [{ "type": "command", "command": "node hooks/scripts/boundary-enforcer.mjs", "timeout": 3000 }] }

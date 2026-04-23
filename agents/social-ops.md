@@ -1,6 +1,14 @@
 ---
 name: social-ops
-description: Social media content creation, platform-specific formatting, and scheduling
+description: Use this agent when the user asks for social-media content — tweets, threads, LinkedIn posts, YouTube descriptions, hashtag strategy. Phrases like "tweet about...", "post for LinkedIn", "thread on...", "caption for...". Use proactively.
+triggers:
+  - '\btweet\b'
+  - '\bthread (about|on)\b'
+  - '\blinkedin post'
+  - '\byoutube (description|caption|title)'
+  - '\bhashtag'
+  - '\bcaption for\b'
+  - '\binstagram (post|caption|story)'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

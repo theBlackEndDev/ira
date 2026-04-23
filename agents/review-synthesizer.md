@@ -1,6 +1,12 @@
 ---
 name: review-synthesizer
-description: Aggregate multi-reviewer findings — deduplicate, assign P0-P3 severity, classify autofix potential
+description: Use this agent when multiple reviewers (code/perf/security/test) have produced findings that need deduplication, severity assignment, and prioritization — "merge these reviews", "synthesize the findings", "what's the P0 list". Use proactively after parallel multi-reviewer runs.
+triggers:
+  - '\bmerge (these|the) reviews?'
+  - '\bsynthesi[sz]e (the )?findings'
+  - "\\bwhat'?s the p0 list"
+  - '\bdeduplicate (the )?findings'
+  - '\baggregate review'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]

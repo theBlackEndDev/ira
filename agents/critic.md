@@ -1,6 +1,13 @@
 ---
 name: critic
-description: Plan validation, adversarial review, and assumption challenging — read-only, does not create plans
+description: Use this agent when the user asks to validate, stress-test, or challenge an existing plan/design — "is this plan good", "what's wrong with this approach", "poke holes in...", "challenge this". READ-ONLY. Use proactively after planner/architect produce a plan.
+triggers:
+  - '\bpoke holes'
+  - "\\bwhat'?s wrong with (this|the) (plan|approach|design)"
+  - '\bchallenge (this|the) (plan|approach|design)'
+  - '\bvalidate (the )?plan'
+  - '\bstress[\s-]?test (the )?(plan|design)'
+  - '\bdevil'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]

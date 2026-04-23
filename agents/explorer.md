@@ -1,6 +1,12 @@
 ---
 name: explorer
-description: Codebase navigation, architecture mapping, and file discovery
+description: Use this agent when the user asks how a codebase is structured, how a feature flows end-to-end, or wants an architecture map — "how does X work in this repo", "walk me through...", "trace the flow from...", "what's the layout of...". Use proactively when the task spans more than 3 files in unfamiliar code.
+triggers:
+  - '\bhow does \w+ work in this (repo|codebase|project)'
+  - '\bwalk me through\b'
+  - "\\bwhat'?s the layout of\\b"
+  - '\btrace the (request|flow|call|path) from\b'
+  - '\bmap (out )?the (architecture|codebase|repo)'
 model: claude-haiku-4-5
 tier: 1
 disallowedTools: ["Write", "Edit"]

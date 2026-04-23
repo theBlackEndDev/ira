@@ -1,6 +1,12 @@
 ---
 name: executor
-description: Primary implementation agent — writes code and creates files per spec
+description: Use this agent when the user asks for new code, a feature, a refactor, or any file-modifying implementation against a clear spec — "implement...", "add...", "build the...", "wire up...", "write the...". Use proactively as the default for non-trivial coding work.
+triggers:
+  - '^implement\b'
+  - '\badd (a |the )?\w+\s+(feature|component|endpoint|route|module)'
+  - '\bwire up\b'
+  - '\bbuild (the |a )\w+'
+  - '\bwrite (the |a |an )?\w+\s+(function|class|service|handler|component)'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

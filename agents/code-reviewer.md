@@ -1,6 +1,13 @@
 ---
 name: code-reviewer
-description: Code quality review, pattern enforcement, complexity analysis, and refactor suggestions
+description: Use this agent when the user asks for a code-quality review focused on patterns, complexity, naming, or refactor suggestions — "review this code", "is this clean", "anti-patterns", "refactor opportunities". Read-only. Use proactively after large refactors.
+triggers:
+  - '\breview this code\b'
+  - '\bis this clean\b'
+  - '\banti[-\s]pattern'
+  - '\brefactor opportunities'
+  - '\bcode quality\b'
+  - '\bcomplexity (analysis|review)'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: ["Write", "Edit"]

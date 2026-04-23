@@ -1,6 +1,13 @@
 ---
 name: analyst
-description: Requirements decomposition, stakeholder analysis, trade-off evaluation, ISC criteria production
+description: Use this agent when the user asks to decompose requirements, produce ISC criteria, or analyze stakeholder/trade-off questions — "what are the requirements", "break this down", "ISC for...", "what could go wrong with this scope". Use proactively at the start of Standard+ tasks.
+triggers:
+  - '\bisc for\b'
+  - '\bdecompose (the )?requirements'
+  - '\bbreak (this|it) (down|up) into requirements'
+  - '\bwhat are the requirements'
+  - '\bstakeholder analysis'
+  - '\bideal state criteria'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]

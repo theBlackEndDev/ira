@@ -1,6 +1,12 @@
 ---
 name: test-engineer
-description: Test writing, coverage analysis, and test infrastructure management
+description: Use this agent when the user asks to write, expand, or fix tests (unit/integration/e2e), or wants coverage added — "write tests for...", "add coverage", "test this", "write an e2e for...". Use proactively after implementation when no tests were added.
+triggers:
+  - '\bwrite\s+(unit|integration|e2e|end[\s-]to[\s-]end)?\s*tests?\b'
+  - '\badd (test|coverage|tests)'
+  - '\btest this\b'
+  - '\bwrite (an )?e2e\b'
+  - '\btest infrastructure\b'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

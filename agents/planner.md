@@ -1,6 +1,13 @@
 ---
 name: planner
-description: Implementation planning, task sequencing, dependency mapping, and effort estimation
+description: Use this agent when the user asks for an implementation plan, task sequencing, dependency map, or effort estimate — "plan to ship X", "task breakdown", "what order", "estimate effort". Use proactively for Standard+ work.
+triggers:
+  - '\bplan to (ship|build|launch|deliver)'
+  - '\btask breakdown'
+  - '\bestimate (the )?effort'
+  - '\bsequence (the )?tasks'
+  - '\bdependency (map|graph)'
+  - '\bcritical path'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: []

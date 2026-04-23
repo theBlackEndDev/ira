@@ -1,6 +1,13 @@
 ---
 name: scout
-description: Quick file lookups, existence checks, and simple grep searches
+description: Use this agent when the user asks where a file/symbol lives, whether something exists, or wants a quick grep — phrases like "find X", "where is Y", "does Z exist", "is there a...", "look up...". Use proactively before any implementation that touches unknown code.
+triggers:
+  - '^find\s+'
+  - '\bwhere (is|does|are) (the |a )?\w+'
+  - '\bdoes \w+ exist\b'
+  - '\bis there a\b'
+  - '\blook up\b'
+  - '\bgrep for\b'
 model: claude-haiku-4-5
 tier: 1
 disallowedTools: ["Write", "Edit"]

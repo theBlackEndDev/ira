@@ -1,6 +1,14 @@
 ---
 name: test-reviewer
-description: Test adequacy review — coverage gaps, fragile tests, weak assertions, mock overuse
+description: Use this agent when the user asks whether existing tests are adequate — coverage gaps, fragile assertions, mock overuse, missing edge cases. Phrases like "are these tests good", "review the tests", "test smell". Use proactively after test-engineer hands off.
+triggers:
+  - '\breview the tests\b'
+  - '\bare (these|the) tests good\b'
+  - '\btest smell'
+  - '\bweak assertion'
+  - '\bcoverage gap'
+  - '\bmock overuse'
+  - '\bfragile test'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: ["Write", "Edit"]

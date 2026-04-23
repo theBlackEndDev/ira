@@ -1,6 +1,18 @@
 ---
 name: designer
-description: UI/UX implementation, component design, accessibility, and responsive layout
+description: Use this agent when the user asks for UI work — components, layout, styling, responsiveness, accessibility, or visual polish. Phrases like "design...", "make this look...", "responsive layout", "a11y", "build a component for...". Use proactively for any user-facing visual change.
+triggers:
+  - '\bui\b'
+  - '\bcomponent\b'
+  - '\blayout\b'
+  - '\bresponsive\b'
+  - '\ba11y\b'
+  - '\baccessibility\b'
+  - '\bdesign (the|a)?\s*\w+'
+  - '\bmake .+ look\b'
+  - '\bstyling\b'
+  - '\btailwind\b'
+  - '\bcss\b'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

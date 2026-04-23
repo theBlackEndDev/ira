@@ -1,6 +1,13 @@
 ---
 name: scientist
-description: Hypothesis testing, experiment design, data analysis, and A/B test planning
+description: Use this agent when the user asks to design an experiment, form a hypothesis, plan an A/B test, or analyze experimental data — "experiment for...", "A/B test", "hypothesis", "what's the falsification". Use proactively when a decision hinges on a measurable outcome.
+triggers:
+  - '\ba/b test'
+  - '\bdesign an experiment'
+  - '\bhypothesis for\b'
+  - '\bstatistical significance'
+  - '\bfalsification'
+  - '\bexperimental design'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]

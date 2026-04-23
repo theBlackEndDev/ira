@@ -1,6 +1,12 @@
 ---
 name: formatter
-description: Code formatting, linting fixes, and import sorting
+description: Use this agent when the user asks for formatting, lint fixes, import sorting, or whitespace cleanup — "format this", "run prettier", "fix lint", "sort imports". Use proactively after large code edits before commit.
+triggers:
+  - '\bformat (this|the file|the code)'
+  - '\brun prettier\b'
+  - '\bfix (the )?lint'
+  - '\bsort (the )?imports?'
+  - '\beslint --fix'
 model: claude-haiku-4-5
 tier: 1
 disallowedTools: []

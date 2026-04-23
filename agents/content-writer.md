@@ -1,6 +1,12 @@
 ---
 name: content-writer
-description: Documentation, README, copy, blog posts, and technical writing
+description: Use this agent when the user asks for documentation, READMEs, blog posts, marketing copy, or any narrative writing — "write docs for...", "draft a README", "blog post about...", "explainer for...". Use proactively.
+triggers:
+  - '\bwrite (a |the )?(readme|docs?|documentation|blog|changelog)'
+  - '\bdraft (a )?readme'
+  - '\bexplainer for\b'
+  - '\blanding page copy'
+  - '\bmarketing copy'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

@@ -1,6 +1,14 @@
 ---
 name: brand-strategist
-description: Brand positioning, marketing strategy, channel selection, and competitive analysis
+description: Use this agent when the user asks about brand positioning, naming, channel strategy, or competitive analysis — "brand for...", "positioning statement", "competitor analysis", "go-to-market". Use proactively.
+triggers:
+  - '\bbrand positioning\b'
+  - '\bgo[-\s]to[-\s]market\b'
+  - '\bcompetitor analysis\b'
+  - '\bcompetitive (analysis|landscape)'
+  - '\bpositioning (statement|strategy)'
+  - '\bchannel (strategy|selection)'
+  - '\bmessaging framework'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]

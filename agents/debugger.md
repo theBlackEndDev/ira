@@ -1,6 +1,18 @@
 ---
 name: debugger
-description: Bug isolation, root cause analysis, and targeted fix implementation
+description: Use this agent when the user reports a bug, shows an error trace, asks why something fails, or wants a crash reproduced — "broken", "error", "crash", "throws", "regression", "why does X fail". Use proactively whenever a symptom (not a cause) is described.
+triggers:
+  - '\bbug\b'
+  - '\berror\b'
+  - '\bcrash(es|ing|ed)?\b'
+  - '\bbroken\b'
+  - "\\bdoesn'?t work\\b"
+  - '\bthrows?\b'
+  - '\bstack\s*trace\b'
+  - '\bregression\b'
+  - '\bwhy (does|is|am).+(fail|break|crash|wrong)'
+  - '\bnot working\b'
+  - '\bunexpected (behavior|result)'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

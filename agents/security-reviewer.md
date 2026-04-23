@@ -1,6 +1,17 @@
 ---
 name: security-reviewer
-description: Vulnerability scanning, OWASP top 10, dependency audit, and secrets detection
+description: Use this agent when the user asks for a security review, dependency audit, secret scan, or OWASP check — "is this secure", "scan for secrets", "audit deps", "vulnerability". Use proactively whenever auth, crypto, input handling, or third-party deps change.
+triggers:
+  - '\bsecurity (review|scan|audit|check)'
+  - '\bvulnerab'
+  - '\bowasp\b'
+  - '\bcve\b'
+  - '\bsecret(s)? (scan|leak|detection)'
+  - '\baudit (deps|dependencies|packages)'
+  - '\bxss\b'
+  - '\bsql\s*injection\b'
+  - '\bis (this|it|the)\s+\S*\s*\S*\s*secure\b'
+  - '\bsecure\?'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

@@ -436,6 +436,7 @@ ira tmux kill refinery
 |-------|--------|-------------|
 | SessionStart | `context-loader.mjs` | Project-scoped loader: detects active project slug, then loads TELOS, project memory, active modes, learning signals, user config. Outside a recognized project directory it injects nothing. |
 | UserPromptSubmit | `keyword-detector.mjs` | Keyword detection, complexity classification, state creation |
+| UserPromptSubmit | `agent-router.mjs` | Semantic agent routing — emits `[IRA ROUTE]` hint suggesting the best agent for the prompt. Two-layer classifier (regex + LLM fallback). See [Agent Routing](#agent-routing) below. |
 | PreToolUse | `boundary-enforcer.mjs` | Blocks disallowed tools for read-only agents |
 | PostToolUse | `state-sync.mjs` | ISC progress tracking, agent identity tracking |
 | PreCompact | `context-saver.mjs` | Saves ISC progress and mode state before context compaction |
@@ -445,6 +446,40 @@ ira tmux kill refinery
 All hooks fail gracefully (exit 0, output `{}`). They never crash Claude Code.
 
 See [Hooks Reference](docs/HOOKS.md) for details.
+
+---
+
+## Agent Routing
+
+When you submit a prompt, the `agent-router.mjs` hook classifies it against the agent catalog and emits a hint as additional context — for example `[IRA ROUTE] Prompt matches: debugger (regex, confidence: high). triggers: \berror\b, \bthrows?\b. Consider invoking via Agent tool.` The orchestrator then chooses whether to delegate via the Agent tool. Hints, not forced delegation.
+
+Two-layer classifier:
+
+1. **Regex layer (fast, ~30ms).** Each agent declares trigger patterns in its frontmatter (`triggers:` array in `agents/<name>.md`). Any match wins. New agents auto-register — no separate route map to maintain.
+2. **LLM layer (semantic, ~500ms–10s).** Fires only when the regex layer finds zero matches. Calls Claude Haiku to handle paraphrases the regex can't catch ("the page is bonkers when I click submit twice" → debugger).
+
+**LLM authentication:**
+- **Fast path (~500ms):** set `ANTHROPIC_API_KEY`. Run `claude setup-token` once and `export ANTHROPIC_API_KEY=<token>` in your shell rc. The router calls the API directly with prompt caching.
+- **Slow path (~6–10s):** if no key is set, the router shells out to `claude --print` using your existing Max OAuth. Works out of the box but heavyweight (full Claude Code CLI startup on each call). Fine for occasional paraphrases; set the API key if you want it snappy.
+
+**Skill keywords skip the router.** When the prompt contains `ralph`, `autopilot`, `plan`, `analyze`, etc. the router defers — those skills already orchestrate multiple agents.
+
+**Opt out:** `export IRA_ROUTER_LLM=0` (regex only). The router itself runs unconditionally; only the LLM fallback is disabled.
+
+**Add a new agent and have it auto-route:**
+```yaml
+---
+name: my-agent
+description: Use this agent when the user asks for X. Use proactively.
+triggers:
+  - '\bsome pattern\b'
+  - '\banother phrase\b'
+model: claude-sonnet-4-6
+tier: 2
+disallowedTools: []
+---
+```
+The router reads `agents/*.md` at runtime, so adding a file is enough.
 
 ---
 

@@ -1,6 +1,14 @@
 ---
 name: git-ops
-description: Git operations, branch management, PR creation, commit messages, and merge conflicts
+description: Use this agent when the user asks to commit, branch, push, open a PR, resolve merge conflicts, or write commit messages — "commit", "open a PR", "merge conflict", "rebase", "push to...". Use proactively for any git workflow that's more than a single command.
+triggers:
+  - '\bopen (a )?pr\b'
+  - '\bpull request\b'
+  - '\bmerge conflict'
+  - '\brebase\b'
+  - '\bcherry[\s-]?pick'
+  - '\bgit history\b'
+  - '\bsquash (commits|the commits)'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

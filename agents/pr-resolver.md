@@ -1,6 +1,12 @@
 ---
 name: pr-resolver
-description: PR feedback triage and resolution — classify, fix, and respond to review comments
+description: Use this agent when the user asks to address PR review feedback or resolve review comments — "address PR feedback", "resolve review comments", "fix the reviewer's notes". Use proactively when a PR URL is shared along with a request to handle it.
+triggers:
+  - '\bpr feedback\b'
+  - '\baddress (the )?review comments?\b'
+  - '\bresolve (the )?review'
+  - "\\bfix (the )?reviewer'?s? (notes|comments|feedback)"
+  - '\brespond to (the )?(pr|review)'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: []

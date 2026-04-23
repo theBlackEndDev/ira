@@ -1,6 +1,16 @@
 ---
 name: perf-reviewer
-description: Performance review — N+1 queries, blocking I/O, bundle size, algorithmic complexity
+description: Use this agent when the user reports slowness or asks about performance — N+1 queries, blocking I/O, bundle size, latency, memory leaks. Phrases like "slow", "perf", "optimize", "N+1". Use proactively when a code change touches hot paths or queries.
+triggers:
+  - '\bslow\b'
+  - '\bperf(ormance)?\b'
+  - '\bn\+1\b'
+  - '\boptimi[sz]e\b'
+  - '\blatenc'
+  - '\bbundle\s*size\b'
+  - '\bmemory\s*leak\b'
+  - '\bhot path'
+  - '\bblocking (i/o|io)\b'
 model: claude-sonnet-4-6
 tier: 2
 disallowedTools: ["Write", "Edit"]

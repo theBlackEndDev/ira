@@ -1,6 +1,13 @@
 ---
 name: architect
-description: System design, technology selection, API design — read-only, does not implement
+description: Use this agent when the user asks for system design, technology selection, API contract design, or architectural trade-offs — "design the system", "how should we structure...", "pick a stack", "API contract for...". READ-ONLY, does not implement. Use proactively before any multi-component build.
+triggers:
+  - '\bdesign the (system|architecture|service)'
+  - '\bhow should we (structure|architect|design)'
+  - '\bapi (contract|design) for'
+  - '\bpick a stack'
+  - '\barchitectural (trade[-\s]?off|decision)'
+  - '\bsystem boundaries'
 model: claude-opus-4-6
 tier: 3
 disallowedTools: ["Write", "Edit"]
