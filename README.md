@@ -35,7 +35,8 @@ IRA combines the best of [PAI](https://github.com/danielmiessler/Personal_AI_Inf
 git clone <repo-url> ~/ira
 cd ~/ira && bun install
 
-# Setup: creates .ira/ dirs, registers hooks, symlinks CLAUDE.md, generates config
+# Setup: creates .ira/ dirs, registers hooks, symlinks CLAUDE.md and skills,
+# generates config
 bun run setup
 ```
 
@@ -433,7 +434,7 @@ ira tmux kill refinery
 
 | Event | Script | What It Does |
 |-------|--------|-------------|
-| SessionStart | `context-loader.mjs` | Loads TELOS, project memory, active modes, learning signals, user config |
+| SessionStart | `context-loader.mjs` | Project-scoped loader: detects active project slug, then loads TELOS, project memory, active modes, learning signals, user config. Outside a recognized project directory it injects nothing. |
 | UserPromptSubmit | `keyword-detector.mjs` | Keyword detection, complexity classification, state creation |
 | PreToolUse | `boundary-enforcer.mjs` | Blocks disallowed tools for read-only agents |
 | PostToolUse | `state-sync.mjs` | ISC progress tracking, agent identity tracking |
@@ -444,6 +445,45 @@ ira tmux kill refinery
 All hooks fail gracefully (exit 0, output `{}`). They never crash Claude Code.
 
 See [Hooks Reference](docs/HOOKS.md) for details.
+
+---
+
+## Memory & Conversation API
+
+A persistent memory HTTP API runs on `http://127.0.0.1:7775`, backed by ira-memory (Postgres + pgvector). Every channel (Discord, Telegram, CLI, webchat) reads and writes through the same endpoints, so context follows the user across sessions and surfaces.
+
+**Long-term memory** -- typed (`user` / `feedback` / `project` / `reference`), semantic recall via pgvector:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/memory` | Store `{name, type, content, description}` |
+| GET | `/memory/recall?topic=...` | Semantic + structured recall |
+| GET | `/memory/search?q=...` | Full-text search |
+| GET | `/memory/list?limit=50` | List recent memories |
+| DELETE | `/memory/<id>` | Archive |
+
+**Entities & key-value:**
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/entity` | Store an entity (person, project, place) |
+| GET | `/entity/search?q=...` | Search entities |
+| GET / PUT / DELETE | `/kv/<key>` | Scratch state for cron, last-run timestamps, flags |
+
+**Conversation logging** -- every user message and assistant response on a channel must be logged:
+
+```bash
+curl -s -X POST http://127.0.0.1:7775/conversation/log \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg role "user" --arg content "msg" --arg channel "discord" \
+    '{role:$role, content:$content, channel:$channel}')"
+```
+
+Retrieval is via `GET /conversation/recent?limit=20&channel=discord` and `GET /conversation/search?q=...`. Messages are grouped into per-channel sessions automatically and embedded async into pgvector for later semantic recall.
+
+Health: `GET /health` -> `{"status":"ok","backend":"ira-memory","port":7775}`.
+
+The `memoryProject` setting under `integrations` (see [Configuration](#configuration)) points at the absolute path of the ira-memory project so the hook bridge can connect.
 
 ---
 
