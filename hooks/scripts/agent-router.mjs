@@ -111,8 +111,18 @@ function extractJSON(text) {
 }
 
 async function llmClassifyDirect(prompt, agents) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+  const token = process.env.ANTHROPIC_API_KEY;
+  if (!token) return null;
+  // OAuth tokens (sk-ant-oat...) from `claude setup-token` use Bearer auth.
+  // API keys (sk-ant-api...) from console.anthropic.com use x-api-key header.
+  const isOAuth = token.startsWith('sk-ant-oat');
+  const headers = {
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+    ...(isOAuth
+      ? { 'Authorization': `Bearer ${token}`, 'anthropic-beta': 'oauth-2025-04-20' }
+      : { 'x-api-key': token }),
+  };
   const body = {
     model: 'claude-haiku-4-5',
     max_tokens: 200,
@@ -122,11 +132,7 @@ async function llmClassifyDirect(prompt, agents) {
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(2500),
     });

@@ -459,8 +459,11 @@ Two-layer classifier:
 2. **LLM layer (semantic, ~500ms–10s).** Fires only when the regex layer finds zero matches. Calls Claude Haiku to handle paraphrases the regex can't catch ("the page is bonkers when I click submit twice" → debugger).
 
 **LLM authentication:**
-- **Fast path (~500ms):** set `ANTHROPIC_API_KEY`. Run `claude setup-token` once and `export ANTHROPIC_API_KEY=<token>` in your shell rc. The router calls the API directly with prompt caching.
-- **Slow path (~6–10s):** if no key is set, the router shells out to `claude --print` using your existing Max OAuth. Works out of the box but heavyweight (full Claude Code CLI startup on each call). Fine for occasional paraphrases; set the API key if you want it snappy.
+- **Fast path (~1–2s):** set `ANTHROPIC_API_KEY` to either:
+  - An **OAuth token** from `claude setup-token` (format `sk-ant-oat...`) — works with your existing Max subscription, no separate billing. Router auto-detects the token type and uses `Authorization: Bearer` + the OAuth beta header.
+  - An **API key** from console.anthropic.com (format `sk-ant-api...`) — pay-as-you-go, separate from Max.
+  Either way, `export ANTHROPIC_API_KEY=<token>` in your shell rc.
+- **Slow path (~6–10s):** if no key is set, the router shells out to `claude --print` using your Max OAuth via the CLI. Works out of the box but heavyweight (full Claude Code CLI startup on each call).
 
 **Skill keywords skip the router.** When the prompt contains `ralph`, `autopilot`, `plan`, `analyze`, etc. the router defers — those skills already orchestrate multiple agents.
 
