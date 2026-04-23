@@ -13,6 +13,22 @@ function getMemoryProject() {
   } catch { return null; }
 }
 
+/**
+ * Detect the active project slug from CWD. Returns null if the session
+ * is NOT started inside an actual project directory — the loader then
+ * injects no additional context.
+ *
+ * Recognized patterns:
+ *   /golden-claw-workspace/orchestrator/projects/<slug>/...
+ *   /home/<user>/<slug>/... when the slug has a .git folder (future)
+ */
+function detectProjectSlug(cwd) {
+  if (!cwd) return null;
+  const m = cwd.match(/\/orchestrator\/projects\/([^/]+)(?:\/|$)/);
+  if (m) return m[1];
+  return null;
+}
+
 const MEMORY_PROJECT = getMemoryProject();
 const BRIDGE = MEMORY_PROJECT ? join(MEMORY_PROJECT, 'src', 'hook-bridge.ts') : null;
 
@@ -22,7 +38,17 @@ try {
   const { cwd } = data;
 
   const base = cwd || process.cwd();
+
+  // Hard gate: only load project-scoped memory when inside an actual project.
+  // Outside a project, inject nothing — keeps non-project sessions token-clean.
+  const projectSlug = detectProjectSlug(base);
+  if (!projectSlug) {
+    console.log(JSON.stringify({}));
+    process.exit(0);
+  }
+
   const contextParts = [];
+  contextParts.push(`[IRA PROJECT] Active project: ${projectSlug}`);
 
   // Load project memory from .ira/memory/projects/
   const projectsDir = join(base, '.ira', 'memory', 'projects');
@@ -187,7 +213,7 @@ try {
         );
 
         const dbContext = execSync(
-          `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts recall-context ${sessionId}`,
+          `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts recall-context ${sessionId} ${projectSlug}`,
           { timeout: 4000, encoding: 'utf-8' }
         ).trim();
 

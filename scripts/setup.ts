@@ -40,6 +40,8 @@ const IRA_DIR = resolve(SCRIPT_DIR, "..");
 const IRA_CLAUDE_MD = join(IRA_DIR, "CLAUDE.md");
 const IRA_HOOKS_JSON = join(IRA_DIR, "hooks", "hooks.json");
 const AGENTS_DIR = join(IRA_DIR, "agents");
+const IRA_SKILLS_DIR = join(IRA_DIR, "skills");
+const CLAUDE_SKILLS_DIR = join(CLAUDE_DIR, "skills");
 
 interface Args {
   dryRun: boolean;
@@ -298,6 +300,68 @@ function symlinkClaudeMd(dryRun: boolean) {
   }
 }
 
+// Step 4b: Symlink skills into ~/.claude/skills/ so Claude Code discovers them.
+// Each ira/skills/<name>/ becomes ~/.claude/skills/<name> -> ira/skills/<name>.
+// Idempotent: skips already-correct links, backs up unrelated dirs/files.
+function symlinkSkills(dryRun: boolean) {
+  if (!existsSync(IRA_SKILLS_DIR)) {
+    log(`Warning: ${IRA_SKILLS_DIR} not found, skipping skill linking`);
+    return;
+  }
+
+  if (!existsSync(CLAUDE_SKILLS_DIR)) {
+    if (dryRun) {
+      logAction("MKDIR", CLAUDE_SKILLS_DIR);
+    } else {
+      mkdirSync(CLAUDE_SKILLS_DIR, { recursive: true });
+    }
+  }
+
+  const skills = readdirSync(IRA_SKILLS_DIR).filter((name) => {
+    try {
+      return lstatSync(join(IRA_SKILLS_DIR, name)).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+
+  for (const name of skills) {
+    const src = join(IRA_SKILLS_DIR, name);
+    const dest = join(CLAUDE_SKILLS_DIR, name);
+
+    if (existsSync(dest)) {
+      try {
+        const stat = lstatSync(dest);
+        if (stat.isSymbolicLink()) {
+          const target = execSync(`readlink "${dest}"`).toString().trim();
+          const resolved = resolve(dirname(dest), target);
+          if (resolved === src) {
+            logAction("EXISTS", `skills/${name} (already linked)`);
+            continue;
+          }
+        }
+      } catch {
+        // fall through to backup
+      }
+
+      const backupPath = `${dest}.backup`;
+      if (dryRun) {
+        logAction("BACKUP", `skills/${name} -> ${name}.backup`);
+      } else {
+        execSync(`mv "${dest}" "${backupPath}"`);
+        logAction("BACKUP", `skills/${name} -> ${name}.backup`);
+      }
+    }
+
+    if (dryRun) {
+      logAction("SYMLINK", `skills/${name} -> ${src}`);
+    } else {
+      execSync(`ln -s "${src}" "${dest}"`);
+      logAction("SYMLINK", `skills/${name} -> ${src}`);
+    }
+  }
+}
+
 // Step 5: Create default config
 function createDefaultConfig(dryRun: boolean) {
   const configDir = join(HOME, ".config", "ira");
@@ -420,6 +484,11 @@ async function main() {
   // Step 7
   console.log("Step 7: Symlinking CLAUDE.md...");
   symlinkClaudeMd(args.dryRun);
+  console.log("");
+
+  // Step 7b
+  console.log("Step 7b: Symlinking skills into ~/.claude/skills/...");
+  symlinkSkills(args.dryRun);
   console.log("");
 
   // Step 8

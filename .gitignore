@@ -6,3 +6,5 @@ typescript
 *.log
 .env
 .env.local
+Plans/
+${HOME}/
