@@ -10,7 +10,6 @@
     "uninstall-pai:dry-run": "bun run scripts/uninstall-pai.ts --dry-run",
     "uninstall-pai:restore": "bun run scripts/uninstall-pai.ts --restore",
     "cli": "bun run scripts/ira-cli.ts",
-    "build": "bun build src/index.ts --outdir dist --target node",
     "test": "bun test",
     "test:hooks": "bun test hooks/",
     "lint": "bunx tsc --noEmit"
