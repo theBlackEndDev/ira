@@ -1,11 +1,12 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { readEvent, writeOutput } from './lib/normalize.mjs';
+
+const { target, event, payload } = await readEvent();
 
 try {
-  const input = readFileSync('/dev/stdin', 'utf-8');
-  const data = JSON.parse(input);
-  const { toolName, cwd } = data;
+  const { toolName, cwd } = payload;
 
   const base = cwd || process.cwd();
 
@@ -18,7 +19,7 @@ try {
   const agentFile = join(base, '.ira', 'state', 'current-agent.json');
 
   if (!existsSync(agentFile)) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -27,12 +28,12 @@ try {
     const agentState = JSON.parse(readFileSync(agentFile, 'utf-8'));
     currentAgent = agentState.agent || null;
   } catch {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
   if (!currentAgent) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -40,7 +41,7 @@ try {
   const agentDefPath = join(iraRoot, 'agents', `${currentAgent}.md`);
 
   if (!existsSync(agentDefPath)) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -48,7 +49,7 @@ try {
   try {
     agentContent = readFileSync(agentDefPath, 'utf-8');
   } catch {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -56,15 +57,15 @@ try {
   const disallowed = parseFrontmatterDisallowedTools(agentContent);
 
   if (disallowed.length > 0 && disallowed.includes(toolName)) {
-    console.log(JSON.stringify({
+    writeOutput(target, {
       decision: 'block',
       reason: `[IRA BOUNDARY] Agent "${currentAgent}" is not permitted to use tool "${toolName}". Disallowed tools: ${disallowed.join(', ')}.`
-    }));
+    });
     process.exit(0);
   }
 
   // Pass through
-  console.log(JSON.stringify({}));
+  writeOutput(target, {});
 } catch (err) {
   // Graceful failure — never block on error
   console.log(JSON.stringify({}));

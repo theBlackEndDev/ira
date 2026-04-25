@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { readEvent, writeOutput } from './lib/normalize.mjs';
+
+const { target, event, payload } = await readEvent();
 
 try {
-  const input = readFileSync('/dev/stdin', 'utf-8');
-  const data = JSON.parse(input);
-  const { toolName, toolInput, toolOutput, cwd } = data;
+  const { toolName, toolInput, toolOutput, cwd } = payload;
 
   // Track current agent from Agent tool invocations
   if (toolName === 'Agent' && toolInput) {
@@ -23,7 +24,7 @@ try {
 
   // Only process Write/Edit of PRD-like files for ISC sync
   if (toolName !== 'Write' && toolName !== 'Edit') {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -33,7 +34,7 @@ try {
                 filePath.includes('/prd/');
 
   if (!isPRD) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -46,12 +47,12 @@ try {
       fileContent = readFileSync(filePath, 'utf-8');
     }
   } catch {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
   if (!fileContent) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -66,7 +67,7 @@ try {
   const iscTotal = iscChecked + uncheckedMatches.length;
 
   if (iscTotal === 0) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -94,7 +95,7 @@ try {
 
   writeFileSync(workFile, JSON.stringify(work, null, 2));
 
-  console.log(JSON.stringify({}));
+  writeOutput(target, {});
 } catch (err) {
   console.log(JSON.stringify({}));
 }

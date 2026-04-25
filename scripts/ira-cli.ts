@@ -15,6 +15,7 @@
 import { execSync, spawnSync } from "child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { basename, join, resolve } from "path";
+import { homedir } from "os";
 import { platformInstallHint } from "./lib/rebrand.ts";
 
 // ---------------------------------------------------------------------------
@@ -39,9 +40,31 @@ function tmuxInstalled(): boolean {
   return result.status === 0;
 }
 
-function claudeInstalled(): boolean {
-  const result = spawnSync("which", ["claude"], { stdio: "pipe" });
+/**
+ * Read the active target binary from ~/.config/ira/config.jsonc.
+ * Returns "claude" if the file is missing or the field is absent.
+ */
+function readPrimaryTarget(): string {
+  try {
+    const configPath = join(homedir(), ".config", "ira", "config.jsonc");
+    if (!existsSync(configPath)) return "claude";
+    const raw = readFileSync(configPath, "utf-8")
+      .replace(/\/\/.*/g, "")
+      .replace(/,\s*([}\]])/g, "$1");
+    const config = JSON.parse(raw);
+    return config.primary_target || "claude";
+  } catch {
+    return "claude";
+  }
+}
+
+function binaryInstalled(binary: string): boolean {
+  const result = spawnSync("which", [binary], { stdio: "pipe" });
   return result.status === 0;
+}
+
+function claudeInstalled(): boolean {
+  return binaryInstalled("claude");
 }
 
 function iraSessions(): { name: string; info: string }[] {
@@ -77,7 +100,15 @@ function prefixName(name: string): string {
 
 function cmdTmuxStart(args: string[]) {
   if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
-  if (!claudeInstalled()) die("claude CLI not found. Install Claude Code first.");
+  const primaryTarget = readPrimaryTarget();
+  if (!binaryInstalled(primaryTarget)) {
+    die(
+      `${primaryTarget} binary not found on PATH. ` +
+      `Install it or change primary_target in ~/.config/ira/config.jsonc ` +
+      `(current value: "${primaryTarget}"). ` +
+      `Supported values: "claude" (Claude Code) or "codex" (Codex CLI).`
+    );
+  }
 
   let sessionName: string | undefined;
   let cwd = process.env.IRA_CALLER_CWD || process.cwd();
@@ -105,8 +136,8 @@ function cmdTmuxStart(args: string[]) {
     die(`Directory does not exist: ${cwd}`);
   }
 
-  execSync(`tmux new-session -d -s "${fullName}" -c "${cwd}" "claude"`, { stdio: "inherit" });
-  log(`Created session "${fullName}" in ${cwd}`);
+  execSync(`tmux new-session -d -s "${fullName}" -c "${cwd}" "${primaryTarget}"`, { stdio: "inherit" });
+  log(`Created session "${fullName}" in ${cwd} (target: ${primaryTarget})`);
   log(`Attaching...`);
   execSync(`tmux attach-session -t "${fullName}"`, { stdio: "inherit" });
 }
@@ -232,7 +263,15 @@ function cmdTmuxKill(args: string[]) {
 
 function cmdTeam(args: string[]) {
   if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
-  if (!claudeInstalled()) die("claude CLI not found. Install Claude Code first.");
+  const primaryTarget = readPrimaryTarget();
+  if (!binaryInstalled(primaryTarget)) {
+    die(
+      `${primaryTarget} binary not found on PATH. ` +
+      `Install it or change primary_target in ~/.config/ira/config.jsonc ` +
+      `(current value: "${primaryTarget}"). ` +
+      `Supported values: "claude" (Claude Code) or "codex" (Codex CLI).`
+    );
+  }
 
   // Parse N:agent
   const spec = args[0];
@@ -255,18 +294,23 @@ function cmdTeam(args: string[]) {
   }
 
   const windowName = `ira-team-${agent}`;
-  const claudeCmd = `claude --prompt "[${agent}] ${prompt.replace(/"/g, '\\"')}"`;
+  // Build the per-pane command. The `--prompt` flag is Claude Code-specific;
+  // codex CLI uses a positional argument instead.
+  const escapedPrompt = `[${agent}] ${prompt.replace(/"/g, '\\"')}`;
+  const binaryCmd = primaryTarget === 'codex'
+    ? `${primaryTarget} "${escapedPrompt}"`
+    : `${primaryTarget} --prompt "${escapedPrompt}"`;
 
   // Create a new tmux session or window with the first pane
   if (!sessionExists("ira-team")) {
-    execSync(`tmux new-session -d -s "ira-team" -n "${windowName}" "${claudeCmd}"`, { stdio: "pipe" });
+    execSync(`tmux new-session -d -s "ira-team" -n "${windowName}" "${binaryCmd}"`, { stdio: "pipe" });
   } else {
-    execSync(`tmux new-window -t "ira-team" -n "${windowName}" "${claudeCmd}"`, { stdio: "pipe" });
+    execSync(`tmux new-window -t "ira-team" -n "${windowName}" "${binaryCmd}"`, { stdio: "pipe" });
   }
 
   // Split for remaining panes
   for (let i = 1; i < paneCount; i++) {
-    execSync(`tmux split-window -t "ira-team:${windowName}" "${claudeCmd}"`, { stdio: "pipe" });
+    execSync(`tmux split-window -t "ira-team:${windowName}" "${binaryCmd}"`, { stdio: "pipe" });
     execSync(`tmux select-layout -t "ira-team:${windowName}" tiled`, { stdio: "pipe" });
   }
 
@@ -282,6 +326,11 @@ function cmdStatus() {
 
   console.log("\n  IRA Status");
   console.log("  " + "=".repeat(40));
+
+  // Active target
+  const activeTarget = readPrimaryTarget();
+  const targetInstalled = binaryInstalled(activeTarget);
+  log(`Target: ${activeTarget} (${targetInstalled ? "installed" : "NOT FOUND — run: ira help"})`);
 
   // Active modes
   if (existsSync(stateDir)) {

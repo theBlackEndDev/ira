@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, unl
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { homedir } from 'os';
+import { readEvent, writeOutput } from './lib/normalize.mjs';
+import { logConversation } from './lib/ira-memory.mjs';
 
 function getMemoryProject() {
   if (process.env.IRA_MEMORY_PROJECT) return process.env.IRA_MEMORY_PROJECT;
@@ -15,10 +17,38 @@ function getMemoryProject() {
 
 const MEMORY_PROJECT = getMemoryProject();
 
+const { target, event, payload } = await readEvent();
+
+let _logPending = null;
+
+// ─── Codex SessionEnd gate ────────────────────────────────────────────────────
+// SCHEMA.md: Codex has no SessionEnd event. The Stop event with
+// stop_hook_active===false is the "real" final stop (the real SessionEnd).
+// stop_hook_active===true means the previous stop was Ralph-induced — do NOT
+// harvest yet, the session is still running.
+// Claude Code path: this script is registered on SessionEnd, so no gate needed.
+if (target === 'codex') {
+  if (payload.stop_hook_active !== false) {
+    // Ralph-induced re-fire or unknown state — skip harvesting
+    writeOutput(target, {});
+    process.exit(0);
+  }
+  // stop_hook_active===false → real session end → log assistant turn then harvest.
+  // Codex provides `last_assistant_message` in the Stop payload; Claude does not.
+  if (payload.last_assistant_message) {
+    _logPending = logConversation({
+      role: 'assistant',
+      content: payload.last_assistant_message,
+      channel: 'codex',
+      sessionId: payload.sessionId,
+      transcriptPath: payload.transcript_path,
+    }).catch(() => {});
+  }
+  // TODO: Claude assistant logging via transcript_path
+}
+
 try {
-  const input = readFileSync('/dev/stdin', 'utf-8');
-  const data = JSON.parse(input);
-  const { sessionId, cwd } = data;
+  const { sessionId, cwd } = payload;
 
   const base = cwd || process.cwd();
   const stateDir = join(base, '.ira', 'state');
@@ -123,9 +153,10 @@ try {
     }
   }
 
-  console.log(JSON.stringify({}));
+  writeOutput(target, {});
 } catch (err) {
   console.log(JSON.stringify({}));
 }
 
+if (_logPending) await _logPending;
 process.exit(0);

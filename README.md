@@ -37,7 +37,10 @@ cd ~/ira && bun install
 
 # Setup: creates .ira/ dirs, registers hooks, symlinks CLAUDE.md and skills,
 # generates config
-bun run setup
+bun run setup                      # Claude Code only (default)
+bun run setup -- --target codex    # Codex CLI only
+bun run setup -- --target both     # both CLIs
+bun run setup -- --target auto     # auto-detect what's installed
 ```
 
 ### Migrating from PAI
@@ -60,6 +63,27 @@ bun run migrate -- \
 ```
 
 See [Migration Guide](docs/MIGRATION.md) for details.
+
+---
+
+## Codex CLI Support
+
+IRA runs on Codex CLI 0.125+ with the `codex_hooks` feature (stable, enabled by default).
+
+```bash
+bun run setup -- --target codex    # Codex only
+bun run setup -- --target both     # Claude Code + Codex
+```
+
+What gets installed: `~/.codex/skills/`, `~/.codex/AGENTS.md` (symlink to the same `CLAUDE.md` source), and `~/.codex/hooks.json`. The `[features].codex_hooks=true` flag is written to `~/.codex/config.toml` for forward-compatibility.
+
+**What works / what's degraded:**
+
+| | Works | Degraded / absent |
+|--|-------|-------------------|
+| **Codex** | Keyword routing, Ralph loop (Stop blocking confirmed), ISC sync on Bash tool use, memory API (:7775), skills, agents-as-role-prompts | No `Agent` tool dispatch (agents become inline role hints), no `PreCompact` (skipped), `PostToolUse` only fires for Bash |
+
+See [docs/CODEX.md](docs/CODEX.md) for the full compatibility matrix, field-naming differences, and model tier map.
 
 ---
 
@@ -432,18 +456,18 @@ ira tmux kill refinery
 
 7 lifecycle hooks enforce behavior the AI cannot forget:
 
-| Event | Script | What It Does |
-|-------|--------|-------------|
-| SessionStart | `context-loader.mjs` | Project-scoped loader: detects active project slug, then loads TELOS, project memory, active modes, learning signals, user config. Outside a recognized project directory it injects nothing. |
-| UserPromptSubmit | `keyword-detector.mjs` | Keyword detection, complexity classification, state creation |
-| UserPromptSubmit | `agent-router.mjs` | Semantic agent routing — emits `[IRA ROUTE]` hint suggesting the best agent for the prompt. Two-layer classifier (regex + LLM fallback). See [Agent Routing](#agent-routing) below. |
-| PreToolUse | `boundary-enforcer.mjs` | Blocks disallowed tools for read-only agents |
-| PostToolUse | `state-sync.mjs` | ISC progress tracking, agent identity tracking |
-| PreCompact | `context-saver.mjs` | Saves ISC progress and mode state before context compaction |
-| Stop | `ralph-loop.mjs` | Blocks premature stops when ralph is active |
-| SessionEnd | `session-harvester.mjs` | Archives mode states, captures ISC ratings, writes events |
+| Event | Script | What It Does | Codex |
+|-------|--------|-------------|-------|
+| SessionStart | `context-loader.mjs` | Project-scoped loader: detects active project slug, then loads TELOS, project memory, active modes, learning signals, user config. Outside a recognized project directory it injects nothing. | ✅ |
+| UserPromptSubmit | `keyword-detector.mjs` | Keyword detection, complexity classification, state creation | ✅ |
+| UserPromptSubmit | `agent-router.mjs` | Semantic agent routing — emits `[IRA ROUTE]` hint suggesting the best agent for the prompt. Two-layer classifier (regex + LLM fallback). See [Agent Routing](#agent-routing) below. | ✅ |
+| PreToolUse | `boundary-enforcer.mjs` | Blocks disallowed tools for read-only agents | ✅ (Bash only) |
+| PostToolUse | `state-sync.mjs` | ISC progress tracking, agent identity tracking | ✅ (Bash only) |
+| PreCompact | `context-saver.mjs` | Saves ISC progress and mode state before context compaction | ❌ skipped |
+| Stop | `ralph-loop.mjs` | Blocks premature stops when ralph is active | ✅ confirmed |
+| SessionEnd | `session-harvester.mjs` | Archives mode states, captures ISC ratings, writes events | ✅ via Stop (`stop_hook_active=false`) |
 
-All hooks fail gracefully (exit 0, output `{}`). They never crash Claude Code.
+All hooks fire on both Claude Code and Codex with target-normalized payloads (the `hooks/scripts/lib/normalize.mjs` utility remaps Codex snake_case fields to the Claude camelCase shape that hook scripts expect). All hooks fail gracefully (exit 0, output `{}`). They never crash Claude Code or Codex.
 
 See [Hooks Reference](docs/HOOKS.md) for details.
 
@@ -648,13 +672,15 @@ ira/
 
 ## Credits
 
-IRA stands on the shoulders of two excellent projects:
+IRA stands on the shoulders of three excellent projects:
 
 - **[PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure)** by Daniel Miessler -- ISC quality system, Algorithm structured execution, TELOS life context, Actions/Pipelines/Flows, continuous learning loop, SYSTEM/USER separation pattern.
 
 - **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** by Yeachan Heo -- Ralph stop-hook persistence, three-layer skill composition, agent XML prompts with role boundaries, keyword detection with intent filtering, anti-slop as a first-class step, autopilot pipeline.
 
-IRA combines PAI's quality rigor with OMC's execution efficiency.
+- **[oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex)** by Yeachan Heo -- the Codex CLI equivalent of oh-my-claudecode; informed IRA's Codex hook integration and served as an independent sanity check on the empirically-derived Codex hook schema.
+
+IRA combines PAI's quality rigor with OMC's execution efficiency, now extended to Codex CLI.
 
 ---
 

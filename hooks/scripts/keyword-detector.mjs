@@ -1,13 +1,17 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { readEvent, writeOutput } from './lib/normalize.mjs';
+import { logConversation } from './lib/ira-memory.mjs';
+
+const { target, event, payload } = await readEvent();
+
+let _logPending = null;
 
 try {
-  const input = readFileSync('/dev/stdin', 'utf-8');
-  const data = JSON.parse(input);
-  const { prompt, cwd, sessionId } = data;
+  const { prompt, cwd, sessionId } = payload;
 
   if (!prompt || typeof prompt !== 'string') {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
@@ -19,6 +23,17 @@ try {
     .replace(/`[^`]+`/g, ' ')
     .trim()
     .toLowerCase();
+
+  // Log user turn to ira-memory API. Awaited at end-of-script so the POST
+  // completes before process.exit; the 500ms timeout in ira-memory.mjs caps latency.
+  _logPending = logConversation({
+    role: 'user',
+    content: prompt,
+    channel: target === 'codex' ? 'codex' : 'claude-code',
+    sessionId: payload.sessionId,
+    turnId: payload.turn_id,
+    transcriptPath: payload.transcript_path,
+  }).catch(() => {});
 
   // Check for informational intent — questions about keywords should not trigger
   const informationalPatterns = [
@@ -78,7 +93,8 @@ try {
   }
 
   if (!matched) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
+    if (_logPending) await _logPending;
     process.exit(0);
   }
 
@@ -94,11 +110,12 @@ try {
         writeFileSync(stateFile, JSON.stringify({ active: false, cancelledAt: new Date().toISOString() }));
       }
     }
-    console.log(JSON.stringify({
+    writeOutput(target, {
       hookSpecificOutput: {
         additionalContext: `[IRA KEYWORD: CANCEL] Mode ${modeMatch ? modeMatch[1] : 'unknown'} cancelled by user.`
       }
-    }));
+    });
+    if (_logPending) await _logPending;
     process.exit(0);
   }
 
@@ -125,10 +142,11 @@ try {
     }
   };
 
-  console.log(JSON.stringify(output));
+  writeOutput(target, output);
 } catch (err) {
   // Graceful failure — emit nothing
   console.log(JSON.stringify({}));
 }
 
+if (_logPending) await _logPending;
 process.exit(0);

@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { homedir } from 'os';
+import { readEvent, writeOutput } from './lib/normalize.mjs';
 
 function getMemoryProject() {
   if (process.env.IRA_MEMORY_PROJECT) return process.env.IRA_MEMORY_PROJECT;
@@ -15,10 +16,17 @@ function getMemoryProject() {
 
 const MEMORY_PROJECT = getMemoryProject();
 
+const { target, event, payload } = await readEvent();
+
+// Claude PreCompact only. Codex has no PreCompact event and setup.ts does not
+// register this script on Codex — but guard defensively anyway (belt and suspenders).
+if (target === 'codex') {
+  writeOutput(target, {});
+  process.exit(0);
+}
+
 try {
-  const input = readFileSync('/dev/stdin', 'utf-8');
-  const data = JSON.parse(input);
-  const { cwd } = data;
+  const { cwd } = payload;
 
   const base = cwd || process.cwd();
   const stateDir = join(base, '.ira', 'state');
@@ -94,7 +102,7 @@ try {
     }
   }
 
-  console.log(JSON.stringify({}));
+  writeOutput(target, {});
 } catch (err) {
   console.log(JSON.stringify({}));
 }

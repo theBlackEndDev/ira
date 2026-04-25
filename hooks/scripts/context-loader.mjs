@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { homedir } from 'os';
+import { readEvent, writeOutput } from './lib/normalize.mjs';
+import { recallRecentConversations, recallMemory } from './lib/ira-memory.mjs';
 
 function getMemoryProject() {
   if (process.env.IRA_MEMORY_PROJECT) return process.env.IRA_MEMORY_PROJECT;
@@ -33,26 +35,24 @@ const MEMORY_PROJECT = getMemoryProject();
 const BRIDGE = MEMORY_PROJECT ? join(MEMORY_PROJECT, 'src', 'hook-bridge.ts') : null;
 
 try {
-  const input = readFileSync('/dev/stdin', 'utf-8');
-  const data = JSON.parse(input);
-  const { cwd } = data;
+  const { target, event, payload } = await readEvent();
+  const { cwd } = payload;
 
   const base = cwd || process.cwd();
 
-  // Hard gate: only load project-scoped memory when inside an actual project.
-  // Outside a project, inject nothing — keeps non-project sessions token-clean.
+  // Project detection: filesystem-scoped context loads only when inside an
+  // orchestrator project. The HTTP API recalls below are GLOBAL (cross-project)
+  // and run regardless — that's how Codex/Claude sessions accumulate shared memory.
   const projectSlug = detectProjectSlug(base);
-  if (!projectSlug) {
-    console.log(JSON.stringify({}));
-    process.exit(0);
-  }
 
   const contextParts = [];
-  contextParts.push(`[IRA PROJECT] Active project: ${projectSlug}`);
+  if (projectSlug) {
+    contextParts.push(`[IRA PROJECT] Active project: ${projectSlug}`);
+  }
 
   // Load project memory from .ira/memory/projects/
-  const projectsDir = join(base, '.ira', 'memory', 'projects');
-  if (existsSync(projectsDir)) {
+  const projectsDir = projectSlug ? join(base, '.ira', 'memory', 'projects') : null;
+  if (projectsDir && existsSync(projectsDir)) {
     try {
       const memoryParts = [];
       const projects = readdirSync(projectsDir, { withFileTypes: true })
@@ -226,16 +226,44 @@ try {
     }
   }
 
+  // ─── IRA Memory HTTP API: recent conversations + semantic recall ──────────
+  // Both calls have a hard 500ms ceiling each (AbortController inside ira-memory.mjs).
+  // If the API is down we still load filesystem context and exit clean.
+  const channel = target === 'codex' ? 'codex' : 'claude-code';
+
+  const [recentConversations, memoryHits] = await Promise.all([
+    recallRecentConversations({ channel, limit: 10 }),
+    // Semantic recall only on UserPromptSubmit where we have a prompt to query with.
+    event === 'UserPromptSubmit' && payload.prompt
+      ? recallMemory({ topic: payload.prompt, limit: 5 })
+      : Promise.resolve([]),
+  ]);
+
+  if (recentConversations.length > 0) {
+    const lines = recentConversations
+      .slice(-10)
+      .map(m => `**${m.role || '?'}**: ${(m.content || '').slice(0, 300)}`)
+      .join('\n');
+    contextParts.push(`[IRA MEMORY — Recent conversation]\n${lines}`);
+  }
+
+  if (memoryHits.length > 0) {
+    const lines = memoryHits
+      .map(m => `- ${(m.name || m.title || '').slice(0, 60)}: ${(m.content || m.description || '').slice(0, 300)}`)
+      .join('\n');
+    contextParts.push(`[IRA MEMORY — Recalled]\n${lines}`);
+  }
+
   if (contextParts.length === 0) {
-    console.log(JSON.stringify({}));
+    writeOutput(target, {});
     process.exit(0);
   }
 
-  console.log(JSON.stringify({
+  writeOutput(target, {
     hookSpecificOutput: {
       additionalContext: contextParts.join('\n\n')
     }
-  }));
+  });
 } catch (err) {
   console.log(JSON.stringify({}));
 }
