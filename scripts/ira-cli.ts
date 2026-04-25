@@ -100,25 +100,34 @@ function prefixName(name: string): string {
 
 function cmdTmuxStart(args: string[]) {
   if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
-  const primaryTarget = readPrimaryTarget();
-  if (!binaryInstalled(primaryTarget)) {
-    die(
-      `${primaryTarget} binary not found on PATH. ` +
-      `Install it or change primary_target in ~/.config/ira/config.jsonc ` +
-      `(current value: "${primaryTarget}"). ` +
-      `Supported values: "claude" (Claude Code) or "codex" (Codex CLI).`
-    );
-  }
 
   let sessionName: string | undefined;
   let cwd = process.env.IRA_CALLER_CWD || process.cwd();
+  let targetOverride: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--cwd" && args[i + 1]) {
       cwd = resolve(args[++i]);
+    } else if (args[i] === "--target" && args[i + 1]) {
+      targetOverride = args[++i];
     } else if (!args[i].startsWith("-")) {
       sessionName = args[i];
     }
+  }
+
+  const primaryTarget = targetOverride || readPrimaryTarget();
+  if (primaryTarget !== "claude" && primaryTarget !== "codex") {
+    die(`Invalid --target "${primaryTarget}". Supported values: "claude" or "codex".`);
+  }
+  if (!binaryInstalled(primaryTarget)) {
+    die(
+      `${primaryTarget} binary not found on PATH. ` +
+      (targetOverride
+        ? `Install it or pick a different --target.`
+        : `Install it or change primary_target in ~/.config/ira/config.jsonc ` +
+          `(current value: "${primaryTarget}"). `) +
+      `Supported values: "claude" (Claude Code) or "codex" (Codex CLI).`
+    );
   }
 
   if (!sessionName) {
@@ -263,19 +272,36 @@ function cmdTmuxKill(args: string[]) {
 
 function cmdTeam(args: string[]) {
   if (!tmuxInstalled()) die(`tmux is required. Install with: ${platformInstallHint("tmux")}`);
-  const primaryTarget = readPrimaryTarget();
+
+  // Parse --target before positional N:agent and prompt
+  let targetOverride: string | undefined;
+  const positional: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--target" && args[i + 1]) {
+      targetOverride = args[++i];
+    } else {
+      positional.push(args[i]);
+    }
+  }
+
+  const primaryTarget = targetOverride || readPrimaryTarget();
+  if (primaryTarget !== "claude" && primaryTarget !== "codex") {
+    die(`Invalid --target "${primaryTarget}". Supported values: "claude" or "codex".`);
+  }
   if (!binaryInstalled(primaryTarget)) {
     die(
       `${primaryTarget} binary not found on PATH. ` +
-      `Install it or change primary_target in ~/.config/ira/config.jsonc ` +
-      `(current value: "${primaryTarget}"). ` +
+      (targetOverride
+        ? `Install it or pick a different --target.`
+        : `Install it or change primary_target in ~/.config/ira/config.jsonc ` +
+          `(current value: "${primaryTarget}"). `) +
       `Supported values: "claude" (Claude Code) or "codex" (Codex CLI).`
     );
   }
 
   // Parse N:agent
-  const spec = args[0];
-  const prompt = args.slice(1).join(" ");
+  const spec = positional[0];
+  const prompt = positional.slice(1).join(" ");
 
   if (!spec || !prompt) {
     die("Usage: ira team N:agent \"prompt\"\n  Example: ira team 3:executor \"fix all TypeScript errors\"");
@@ -411,7 +437,10 @@ IRA CLI — Tmux session manager for persistent Claude Code work
 Usage: ira <command> [options]
 
 Session Management:
-  ira tmux start [name] [--cwd path]   Create a new IRA tmux session
+  ira tmux start [name] [options]      Create a new IRA tmux session
+                                        Options:
+                                          --cwd <path>           Working directory for the session
+                                          --target <claude|codex>  Override primary_target for this session
                                         Default name: basename of working directory
                                         Sessions are prefixed with "ira-"
   ira tmux attach [name]               Attach to an existing IRA session
@@ -420,8 +449,10 @@ Session Management:
   ira tmux kill [name]                 Kill an IRA tmux session
 
 Team:
-  ira team N:agent "prompt"            Launch N panes each running claude with agent prompt
-                                        Example: ira team 3:executor "fix TypeScript errors"
+  ira team N:agent "prompt" [--target T]   Launch N panes each running the configured CLI with agent prompt
+                                            --target <claude|codex>  Override primary_target for this run
+                                            Example: ira team 3:executor "fix TypeScript errors"
+                                            Example: ira team 2:debugger --target codex "trace this regression"
 
 Status:
   ira status                           Show active modes, ISC progress, and sessions
@@ -432,10 +463,12 @@ Help:
 Examples:
   ira tmux start foundry --cwd ~/projects/foundry
   ira tmux start                       # uses current directory basename
+  ira tmux start scratch --target codex   # this session runs codex regardless of config
   ira tmux attach foundry
   ira tmux list
   ira tmux kill foundry
   ira team 4:executor "run all tests and fix failures"
+  ira team 2:debugger --target codex "trace this regression"
   ira status
 `);
 }
