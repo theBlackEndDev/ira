@@ -12,7 +12,16 @@ import { getPrincipal } from './identity';
  * Get configured timezone from settings.json (defaults to UTC)
  */
 function getTimezone(): string {
-  return getPrincipal().timezone || 'UTC';
+  const tz = getPrincipal().timezone;
+  // Defensive: an unfilled install placeholder ("{YOUR_TIMEZONE}") or any invalid
+  // IANA name must NOT crash time functions (Phase-0 bug). Fall back to UTC.
+  if (!tz || tz.includes('{')) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'UTC';
+  }
 }
 
 /**
