@@ -17,6 +17,7 @@ import { spawn } from "child_process"
 import { join } from "path"
 import { existsSync, readFileSync } from "fs"
 import { log } from "../lib"
+import { getPlatformAdapter } from "../../../hooks/lib/platform"
 
 // ── Public Config Interface ──
 
@@ -351,8 +352,16 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
 
   await Bun.write(tempFile, audioBuffer)
 
+  // Cross-platform: the adapter picks afplay (mac) / mpg123|mpv|ffplay|aplay (linux).
+  const player = getPlatformAdapter().audioCommand()
+  if (!player) {
+    log("warn", "Voice: no audio player available on this OS; skipping playback")
+    spawn("rm", ["-f", tempFile])
+    return
+  }
+
   return new Promise((resolve, reject) => {
-    const proc = spawn("/usr/bin/afplay", ["-v", volume.toString(), tempFile])
+    const proc = spawn(player.command, player.args(tempFile, volume))
 
     proc.on("error", (error) => {
       log("error", "Voice: error playing audio", { error: String(error) })
@@ -360,11 +369,11 @@ async function playAudio(audioBuffer: ArrayBuffer, volume: number = FALLBACK_VOL
     })
 
     proc.on("exit", (code) => {
-      spawn("/bin/rm", [tempFile])
+      spawn("rm", ["-f", tempFile])
       if (code === 0) {
         resolve()
       } else {
-        reject(new Error(`afplay exited with code ${code}`))
+        reject(new Error(`${player.command} exited with code ${code}`))
       }
     })
   })
@@ -376,15 +385,8 @@ async function showDesktopNotification(title: string, message: string): Promise<
   if (!voiceConfig.desktopNotifications) return
 
   try {
-    const escapedTitle = escapeForAppleScript(title)
-    const escapedMessage = escapeForAppleScript(message)
-    const script = `display notification "${escapedMessage}" with title "${escapedTitle}" sound name ""`
-
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn("/usr/bin/osascript", ["-e", script])
-      proc.on("error", reject)
-      proc.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`osascript exited ${code}`))))
-    })
+    // Cross-platform: osascript (mac) / notify-send (linux GUI) / stderr log (headless).
+    getPlatformAdapter().notify(title, message)
   } catch (error) {
     log("error", "Voice: notification display error", { error: String(error) })
   }

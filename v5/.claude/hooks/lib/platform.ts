@@ -69,6 +69,8 @@ export interface PlatformAdapter {
   speak(text: string): void;
   /** Play an audio file — afplay (mac) / mpg123|mpv|aplay (linux) / no-op log if none. */
   playAudio(file: string): void;
+  /** Resolve the audio player command for this OS (caller builds its own spawn for await/cleanup). null = none available. */
+  audioCommand(): { command: string; args: (file: string, volume?: number) => string[] } | null;
   /** Open a URL in the default browser — open (mac) / xdg-open (linux). */
   openUrl(url: string): void;
 }
@@ -188,11 +190,24 @@ export function getPlatformAdapter(forceOs?: OS): PlatformAdapter {
       if (espeak && !headless) { spawnSync(espeak, [text], { stdio: 'ignore' }); return; }
       process.stderr.write(`[speak] ${text}\n`);
     },
-    playAudio(file) {
-      if (os === 'darwin') { spawnSync('afplay', [file], { stdio: 'ignore' }); return; }
+    audioCommand() {
+      if (os === 'darwin') {
+        return { command: 'afplay', args: (f, v) => (v != null ? ['-v', String(v), f] : [f]) };
+      }
       const player = which('mpg123', 'mpv', 'ffplay', 'aplay');
-      if (player) { spawn(player, [file], { stdio: 'ignore', detached: true }).unref(); return; }
-      process.stderr.write(`[audio] (no player found) ${file}\n`);
+      if (!player) return null;
+      const argMap: Record<string, (f: string) => string[]> = {
+        mpg123: (f) => ['-q', f],
+        mpv: (f) => ['--really-quiet', f],
+        ffplay: (f) => ['-nodisp', '-autoexit', '-loglevel', 'quiet', f],
+        aplay: (f) => [f],
+      };
+      return { command: player, args: (f) => argMap[player](f) };
+    },
+    playAudio(file) {
+      const cmd = this.audioCommand();
+      if (!cmd) { process.stderr.write(`[audio] (no player found) ${file}\n`); return; }
+      spawn(cmd.command, cmd.args(file), { stdio: 'ignore', detached: true }).unref();
     },
     openUrl(url) {
       const opener = os === 'darwin' ? 'open' : 'xdg-open';
