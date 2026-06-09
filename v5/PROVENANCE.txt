@@ -1,0 +1,2 @@
+Derived from PAI v5.0.0 (pinned SHA 2fde1bbe9e8f280cd4998e244b53e3c66f3dc8b9), tree Releases/v5.0.0/.claude
+Copied 2026-06-09
