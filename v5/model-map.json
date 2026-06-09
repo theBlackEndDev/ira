@@ -2,5 +2,10 @@
   "1": { "claude": "claude-haiku-4-5" },
   "2": { "claude": "claude-sonnet-4-6" },
   "3": { "claude": "claude-opus-4-8" },
-  "_targets": { "active": ["claude"], "planned": ["antigravity"], "removed": ["codex"] }
+  "_targets": {
+    "active": ["claude"],
+    "planned": ["antigravity"],
+    "removed_session_target": ["codex"],
+    "note": "Codex removed ONLY as a session target (the --target codex wrapper). Cross-vendor codex sub-agents (Forge, CrossVendorAudit, CodexResearcher) are retained and invoked independently via Agent()."
+  }
 }

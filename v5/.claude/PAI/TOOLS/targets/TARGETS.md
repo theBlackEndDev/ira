@@ -1,9 +1,14 @@
 # Target Adapter Seam
 
-IRA runs on a **CLI target** behind a small adapter interface so new agent CLIs can be added
-without touching hooks, skills, or the CLI. Today there is exactly one active target — **Claude
-Code**. Codex has been **removed**. **Gemini Antigravity 2.0** is the planned next target and
+IRA runs a whole interactive **session** on one **CLI target** behind a small adapter interface,
+so new agent CLIs can be added without touching hooks, skills, or the CLI. Today there is exactly
+one active session target — **Claude Code**. Codex has been removed **only as a session target**
+(the `--target codex` wrapper). **Gemini Antigravity 2.0** is the planned next session target and
 attaches here (post-completion task).
+
+> Note: this is about the *session* target only. PAI's cross-vendor codex **sub-agents** — `Forge`
+> (GPT‑5.4 code producer via `codex exec`), `CrossVendorAudit`, `CodexResearcher` — are unrelated to
+> this seam and are **retained**. They are normal `Agent(subagent_type=…)` calls, not a session target.
 
 ## Interface (`types.ts`)
 A `TargetAdapter` describes how IRA invokes and configures one agent CLI:
@@ -27,7 +32,11 @@ A `TargetAdapter` describes how IRA invokes and configures one agent CLI:
    documented attach point).
 4. No hook changes required — hooks are target-agnostic (they read stdin JSON + filesystem state).
 
-## Why Codex was removed
-PAI 5.0 is Claude-native (Bun, `--append-system-prompt-file`, MCP). Maintaining the Codex
-normalization seam across a PAI-based foundation was net-negative once Codex was no longer used.
-The seam itself is preserved (this file + `types.ts`) so the *next* target is a clean add.
+## Why Codex was removed as a SESSION target
+PAI 5.0 is Claude-native (Bun, `--append-system-prompt-file`, MCP). Maintaining the old dual-target
+normalization seam (`normalize.mjs` + `codex.ts`) — which ran an entire IRA session inside the codex
+CLI — was net-negative; running whole sessions in codex was redundant. The session-target seam itself
+is preserved (this file + `types.ts`) so the *next* target (Antigravity) is a clean add.
+
+This does NOT remove codex from IRA: the operator has codex installed, and PAI's cross-vendor codex
+**sub-agents** (Forge et al.) continue to call `codex exec` for slices of work within a Claude session.

@@ -31,6 +31,15 @@ Composition: [Execution] + [0-N Enhancement] + [Optional Guarantee]
   (`research` vs `Research`) that would break on macOS's case-insensitive filesystem. No
   capability lost — the keyword still triggers, now backed by the superset implementation.
 
+## CLI targets vs cross-vendor agents (ISC-4.x)
+- **Session target = Claude Code only.** IRA dropped the old dual-target *session wrapper*
+  (`--target codex`, `codex.ts`, `normalize.mjs`) that ran an entire session inside the codex CLI.
+  The session-target seam is preserved (`PAI/TOOLS/targets/`) so **Gemini Antigravity 2.0** is a clean add.
+- **Cross-vendor codex sub-agents are RETAINED.** PAI's `Forge` (GPT‑5.4 code producer via `codex exec`),
+  `CrossVendorAudit`, `CodexResearcher`, etc. are normal `Agent(subagent_type=…)` calls — not a session
+  target — and stay enabled (the operator has codex installed). The Forge auto-include binding in
+  `CLAUDE.md` is intentionally kept.
+
 ## Cross-platform (ISC-1.2–1.5, 1.10)
 All OS-specific behavior routes through `hooks/lib/platform.ts`:
 - service manager: launchd (mac) / systemd --user (linux)

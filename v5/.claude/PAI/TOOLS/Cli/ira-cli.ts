@@ -117,7 +117,7 @@ function cmdTmuxStart(args: string[]) {
 
   const primaryTarget = targetOverride || readPrimaryTarget();
   if (primaryTarget !== "claude") {
-    die(`Invalid --target "${primaryTarget}". IRA is Claude-only (Codex dropped; Gemini Antigravity planned via the target seam).`);
+    die(`Invalid --target "${primaryTarget}". IRA sessions run on Claude Code (Codex removed as a SESSION target; Antigravity planned via the seam). Cross-vendor codex agents like Forge are unaffected.`);
   }
   if (!binaryInstalled(primaryTarget)) {
     die(
@@ -282,7 +282,7 @@ function cmdTeam(args: string[]) {
 
   const primaryTarget = targetOverride || readPrimaryTarget();
   if (primaryTarget !== "claude") {
-    die(`Invalid --target "${primaryTarget}". IRA is Claude-only (Codex dropped; Gemini Antigravity planned via the target seam).`);
+    die(`Invalid --target "${primaryTarget}". IRA sessions run on Claude Code (Codex removed as a SESSION target; Antigravity planned via the seam). Cross-vendor codex agents like Forge are unaffected.`);
   }
   if (!binaryInstalled(primaryTarget)) {
     die(
