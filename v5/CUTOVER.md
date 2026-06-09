@@ -10,7 +10,8 @@ new `v5/.claude` tree. So **back up `~/.claude` first** — this is the one irre
 
 ## Pre-cutover backup (do this, every time)
 ```bash
-tar czf ~/ira-claude-backup-$(date +%Y%m%d).tgz -C ~ .claude
+# Exclude projects/ (the large transcript corpus the install never touches).
+tar czf ~/ira-claude-backup-$(date +%Y%m%d-%H%M%S).tgz -C ~ --exclude='.claude/projects' .claude
 # DB is already backed up: .ira/phase0/backup/ira_memory_*.sql (402 MB, 4,684 facts)
 ```
 
@@ -32,12 +33,15 @@ git checkout main && git merge rebuild/pai5
 
 ## Rollback (if anything is wrong)
 ```bash
-# A. Restore the previous global config
-rm -rf ~/.claude && tar xzf ~/ira-claude-backup-YYYYMMDD.tgz -C ~
+# A. Restore the previous global config by OVERLAYING the backup (preserves ~/.claude/projects,
+#    which was excluded from the backup — do NOT `rm -rf ~/.claude`).
+tar xzf ~/ira-claude-backup-YYYYMMDD-HHMMSS.tgz -C ~
+#    The backup restores the prior CLAUDE.md (symlink), settings.json, and old hooks. The v5-only
+#    additions (PAI/, *.hook.ts) are left as harmless orphans the old settings.json never references;
+#    remove them if you want a clean revert:
+#    rm -rf ~/.claude/PAI ~/.claude/hooks/*.hook.ts
 
-# B. Restore the repo working tree
-git checkout main          # (branch rebuild/pai5 stays for retry)
-
+# B. Repo working tree is already on main's content (build lived in rebuild/pai5, never merged).
 # C. ira-memory is unchanged; if its container was stopped: docker compose up -d
 ```
 Rollback is a file restore + a branch checkout — no data migration to reverse (seeding was additive;
