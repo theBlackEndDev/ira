@@ -312,6 +312,15 @@
             "async": true
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/IraRecall.hook.ts",
+            "timeout": 6
+          }
+        ]
       }
     ],
     "SubagentStop": [],
