@@ -12,7 +12,7 @@
  * SAFETY: defaults to $HOME but accepts --home so it can be exercised against a sandbox without
  * touching the real ~/.claude. --dry-run reports actions without writing.
  */
-import { cpSync, existsSync, readFileSync, writeFileSync, readdirSync, chmodSync, mkdirSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, writeFileSync, readdirSync, chmodSync, mkdirSync, lstatSync, unlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -31,15 +31,42 @@ const DRY = flag('dry-run');
 const TZ = arg('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
 const log = (a: string, d: string) => console.log(`  ${DRY ? '[dry] ' : ''}${a.padEnd(10)} ${d}`);
 
+// User keys preserved across the install (v5 supplies hooks + IRA keys; the operator keeps these).
+const PRESERVE_KEYS = ['env', 'permissions', 'mcpServers', 'apiKeyHelper', 'model', 'principal'];
+let priorSettings: Record<string, any> = {};
+
 function installTree() {
   log('OS', `${detectOS()} (target home: ${HOME})`);
   if (!existsSync(SRC_CLAUDE) || !existsSync(join(SRC_CLAUDE, 'settings.json'))) {
     console.error(`source .claude not found at ${SRC_CLAUDE}`); process.exit(1);
   }
-  if (DRY) { log('COPY', `${SRC_CLAUDE} → ${DEST} (recursive)`); return; }
+  // Capture the operator's existing settings BEFORE laying the tree, so we can merge them back.
+  try { priorSettings = JSON.parse(readFileSync(join(DEST, 'settings.json'), 'utf8')); } catch { priorSettings = {}; }
+  if (DRY) { log('COPY', `${SRC_CLAUDE} → ${DEST} (recursive, symlink-safe, settings merged)`); return; }
   mkdirSync(HOME, { recursive: true });
+  // SYMLINK SAFETY: a dest file that is a symlink (e.g. CLAUDE.md → the repo) would be written
+  // THROUGH by cp, corrupting the link target (and the repo's live file). Unlink top-level dest symlinks first.
+  try {
+    for (const f of readdirSync(DEST)) {
+      const p = join(DEST, f);
+      try { if (lstatSync(p).isSymbolicLink()) { unlinkSync(p); log('UNLINK', `dropped symlink ${f} (replaced by a real file)`); } } catch {}
+    }
+  } catch { /* DEST may not exist yet */ }
   cpSync(SRC_CLAUDE, DEST, { recursive: true });
   log('COPY', `installed tree → ${DEST}`);
+}
+
+function mergeSettings() {
+  const settingsPath = join(DEST, 'settings.json');
+  if (DRY) { log('MERGE', `would preserve ${PRESERVE_KEYS.join('/')} from prior settings.json`); return; }
+  let v5: Record<string, any> = {};
+  try { v5 = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch {}
+  let restored = 0;
+  for (const k of PRESERVE_KEYS) {
+    if (priorSettings[k] !== undefined) { v5[k] = priorSettings[k]; restored++; }
+  }
+  writeFileSync(settingsPath, JSON.stringify(v5, null, 2) + '\n');
+  log('MERGE', `restored ${restored} user key(s) (${PRESERVE_KEYS.filter(k => priorSettings[k] !== undefined).join(', ') || 'none'}); v5 hooks applied`);
 }
 
 function makeHooksExecutable() {
@@ -108,6 +135,7 @@ function runSeed() {
 
 console.log(`\n=== IRA installer (${DRY ? 'DRY RUN' : 'LIVE'}) ===`);
 installTree();
+mergeSettings();
 makeHooksExecutable();
 fillTimezone();
 startDaemons();
