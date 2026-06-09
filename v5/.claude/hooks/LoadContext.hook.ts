@@ -177,6 +177,7 @@ interface WorkSession {
   handoff_notes?: string;
   next_steps?: string[];
   isa?: { id: string; status: string; progress: string } | null;
+  isaPath?: string | null;
 }
 
 /**
@@ -264,11 +265,11 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
         if (sessions.length >= 8) break;
 
         let isa: WorkSession['isa'] = null;
+        let artifactFile: string | null = isaPath;
         try {
           // v4.1: ISA.md at root; v4.0: PRD.md at root; pre-v4.0: PRD-*.md.
           // findArtifactPath already covers v4.0/v4.1; fall back to date-stamped
           // PRD-*.md files only when neither ISA.md nor PRD.md is present.
-          let artifactFile: string | null = isaPath;
           if (!artifactFile) {
             const files = readdirSync(dirPath).filter(f =>
               (f.startsWith('ISA-') || f.startsWith('PRD-')) && f.endsWith('.md')
@@ -295,7 +296,8 @@ function getRecentWorkSessions(paiDir: string): WorkSession[] {
           status,
           timestamp: `${y}-${mo}-${d} ${h}:${mi}`,
           stale: false,
-          isa
+          isa,
+          isaPath: artifactFile,
         });
       } catch { /* skip malformed */ }
     }
@@ -380,6 +382,24 @@ async function checkActiveProgress(paiDir: string): Promise<string | null> {
       if (s.isa) {
         summary += `     ISA: ${s.isa.id} (${s.isa.status}, ${s.isa.progress})\n`;
       }
+    }
+
+    // IRA auto-load-FULL (ISC-2.1): inject the COMPLETE most-recent active ISA, not just
+    // the 1-line digest. This is the fix for "resume gives a sparse summary that drops
+    // details" — the full Plan/Decisions/ISC prose is recovered automatically, no manual
+    // /cs or jsonl-pointing. Older sessions stay as digests above to bound context size.
+    const top = recentSessions[0];
+    if (top?.isaPath && existsSync(top.isaPath)) {
+      try {
+        const full = readFileSync(top.isaPath, 'utf-8');
+        const MAX = 24000; // ~400 lines; guard pathological ISAs
+        const body = full.length > MAX
+          ? full.substring(0, MAX) + `\n…[truncated — full ISA at ${top.isaPath}]`
+          : full;
+        summary += `\n  ── 📖 FULL ACTIVE ISA (auto-loaded: ${top.title}) ──\n`;
+        summary += `  source: ${top.isaPath}\n\n`;
+        summary += body + '\n';
+      } catch { /* fall back to digest only */ }
     }
   }
 
