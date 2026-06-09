@@ -19,8 +19,8 @@ RAT="$PAI_DIR/MEMORY/LEARNING/SIGNALS/ratings.jsonl"
 echo '{"session_id":"reg","prompt":"now add a --json flag to the exporter","transcript_path":"/dev/null","hook_event_name":"UserPromptSubmit"}' \
   | PATH="$SBX/bin:$PATH" timeout 25 bun "$HOOK" >/dev/null 2>"$SBX/err"
 
-rows=$(wc -l < "$RAT" 2>/dev/null || echo 0)
-crash=$(grep -c -E 'RangeError|Fatal error' "$SBX/err" 2>/dev/null || echo 0)
+rows=$(wc -l < "$RAT" 2>/dev/null); rows=${rows:-0}
+crash=$(grep -cE 'RangeError|Fatal error' "$SBX/err" 2>/dev/null); crash=${crash:-0}
 rm -rf "$SBX"
 
 if [ "$rows" -ge 1 ] && [ "$crash" -eq 0 ]; then
