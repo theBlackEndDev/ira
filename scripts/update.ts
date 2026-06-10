@@ -23,7 +23,7 @@
  * machine lays the repos out differently.
  */
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir, userInfo } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -119,16 +119,17 @@ for (const r of repos) {
   log('PULL', `${r.name}: ${before === after ? `${after} (already current)` : `${before} → ${after}`}`);
 }
 
-// ── 3. Update the ira-memory backend (deps + DB), then restart it ──
+// ── 3. Update the ira-memory backend: deps → DB up → migrate → managed service ──
 if (IRA_MEMORY_REPO) {
   run('bun', ['install'], IRA_MEMORY_REPO);
   log('DEPS', 'ira-memory: bun install');
-  // prisma generate is safe always; migrate deploy applies pending migrations without prompting
-  // (the production-safe counterpart to `migrate dev`). No-op when the schema is unchanged.
+  ensureDb(IRA_MEMORY_REPO);
   run('bunx', ['prisma', 'generate'], IRA_MEMORY_REPO);
-  const mig = run('bunx', ['prisma', 'migrate', 'deploy'], IRA_MEMORY_REPO);
-  log('DB', mig.status === 0 ? 'prisma generate + migrate deploy' : `⚠️ migrate deploy exited ${mig.status} (check DATABASE_URL / docker compose up)`);
-  restartService('ira-memory-api');
+  // migrate deploy is the production-safe, non-interactive counterpart to `migrate dev`;
+  // retry briefly because the DB container may have only just started above.
+  const migrated = migrateWithRetry(IRA_MEMORY_REPO);
+  log('DB', migrated ? 'prisma migrate deploy' : '⚠️ migrate deploy failed — is the DB up? (docker compose up / check DATABASE_URL)');
+  ensureMemoryService(IRA_MEMORY_REPO);
 }
 
 // ── 4. Reinstall the IRA tree (re-lays ~/.claude, restarts ira-pulse) ──
@@ -144,18 +145,105 @@ healthCheck('pulse', 'http://127.0.0.1:31337/health');
 console.log(`\n✓ Update complete.${DRY ? ' (dry-run — nothing changed)' : ''}`);
 
 // ── helpers ────────────────────────────────────────────────────────────────
-/** Restart a user service cross-platform. Best-effort: unmanaged setups get a printed hint. */
-function restartService(name: string) {
-  if (DRY) { log('RESTART', name); return; }
-  if (OS === 'linux') {
-    const r = spawnSync('systemctl', ['--user', 'restart', `${name}.service`], { encoding: 'utf-8' });
-    if (r.status === 0) { log('RESTART', `${name} (systemd)`); return; }
-  } else if (OS === 'darwin') {
-    const uid = userInfo().uid;
-    const r = spawnSync('launchctl', ['kickstart', '-k', `gui/${uid}/com.ira.${name}`], { encoding: 'utf-8' });
-    if (r.status === 0) { log('RESTART', `${name} (launchd)`); return; }
+/** Bring the backend DB container up (idempotent). Needs Docker running; best-effort. */
+function ensureDb(repo: string) {
+  if (DRY) { log('DB-UP', 'docker compose up -d'); return; }
+  if (!existsSync(join(repo, 'docker-compose.yml')) && !existsSync(join(repo, 'compose.yml'))) {
+    log('DB-UP', 'no compose file — skipping (external DB?)'); return;
   }
-  log('RESTART', `⚠️ ${name}: no managed unit found — restart it manually so it picks up the new code`);
+  let r = spawnSync('docker', ['compose', 'up', '-d'], { cwd: repo, encoding: 'utf-8' });
+  if (r.error || r.status !== 0) {                     // older Docker without the compose plugin
+    const legacy = spawnSync('docker-compose', ['up', '-d'], { cwd: repo, encoding: 'utf-8' });
+    if (!legacy.error && legacy.status === 0) r = legacy;
+  }
+  if (!r.error && r.status === 0) log('DB-UP', 'docker compose up -d');
+  else log('DB-UP', `⚠️ couldn't start DB — is Docker running? (${(r.stderr || '').split('\n')[0] || r.error?.message || 'exit ' + r.status})`);
+}
+
+/** Run `prisma migrate deploy`, retrying only while the DB is still unreachable (just-started). */
+function migrateWithRetry(repo: string): boolean {
+  if (DRY) { log('RUN', 'bunx prisma migrate deploy (retry while DB warms)'); return true; }
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const r = spawnSync('bunx', ['prisma', 'migrate', 'deploy'], { cwd: repo, encoding: 'utf-8' });
+    if (r.status === 0) return true;
+    const out = (r.stderr || '') + (r.stdout || '');
+    if (!/P1001|Can't reach|ECONNREFUSED|ENOTFOUND/.test(out)) return false; // real migration error, not warm-up
+    Bun.sleepSync(3000);                                                     // DB still booting; wait + retry
+  }
+  return false;
+}
+
+/**
+ * Install (or refresh) a managed ira-memory-api service for :7775 and start it.
+ * The installer manages ira-pulse but not this backend, so the updater owns it — making the
+ * memory API self-healing and restartable on BOTH machines (the gap that left the Mac with
+ * "no managed unit"). Idempotent: rewrites the unit + restarts every run.
+ */
+function ensureMemoryService(repo: string) {
+  const name = 'ira-memory-api';
+  const bun = process.execPath;            // the bun binary running this script — correct on any machine
+  if (DRY) { log('SERVICE', `install + start ${name} (${OS === 'darwin' ? 'launchd' : OS === 'linux' ? 'systemd' : 'manual'})`); return; }
+
+  if (OS === 'linux') {
+    const unitDir = join(HOME, '.config', 'systemd', 'user'); mkdirSync(unitDir, { recursive: true });
+    const logDir = join(HOME, '.claude', 'logs'); mkdirSync(logDir, { recursive: true });
+    const logFile = join(logDir, 'ira-memory-api.log');
+    const unit = `[Unit]
+Description=IRA Memory HTTP API (:7775)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${repo}
+ExecStart=${bun} run src/http-server.ts
+Restart=on-failure
+RestartSec=3
+StandardOutput=append:${logFile}
+StandardError=append:${logFile}
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target
+`;
+    writeFileSync(join(unitDir, `${name}.service`), unit);
+    spawnSync('systemctl', ['--user', 'daemon-reload']);
+    spawnSync('systemctl', ['--user', 'enable', '--now', `${name}.service`]);
+    spawnSync('systemctl', ['--user', 'restart', `${name}.service`]);
+    log('SERVICE', `${name} → systemd (installed + restarted)`);
+  } else if (OS === 'darwin') {
+    const laDir = join(HOME, 'Library', 'LaunchAgents'); mkdirSync(laDir, { recursive: true });
+    const logFile = join(HOME, 'Library', 'Logs', 'com.ira.ira-memory-api.log');
+    const label = `com.ira.${name}`;
+    const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${label}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${bun}</string>
+    <string>run</string>
+    <string>src/http-server.ts</string>
+  </array>
+  <key>WorkingDirectory</key><string>${repo}</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>${logFile}</string>
+  <key>StandardErrorPath</key><string>${logFile}</string>
+</dict>
+</plist>
+`;
+    const plistPath = join(laDir, `${label}.plist`);
+    writeFileSync(plistPath, plist);
+    const uid = userInfo().uid;
+    spawnSync('launchctl', ['bootout', `gui/${uid}/${label}`]);          // ignore if not loaded
+    spawnSync('launchctl', ['bootstrap', `gui/${uid}`, plistPath]);
+    spawnSync('launchctl', ['kickstart', '-k', `gui/${uid}/${label}`]);
+    log('SERVICE', `${name} → launchd (installed + restarted)`);
+  } else {
+    log('SERVICE', `⚠️ ${OS}: start the memory API manually — bun run src/http-server.ts (in ${repo})`);
+  }
 }
 
 function healthCheck(label: string, url: string) {
