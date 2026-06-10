@@ -214,6 +214,7 @@ VERIFY:
 6. **Minimal scope.** Only change what was asked. No bonus refactoring.
 7. **Plan means stop.** "Create a plan" = present and stop. No execution without approval.
 8. **First principles over bolt-ons.** Understand → Simplify → Reduce → Add (last resort).
+9. **Paid APIs: permission + 1 retry + failures cost money.** Before ANY metered/paid external API request that is NOT part of an explicitly operator-initiated run, get permission first — no probes, smoke tests, "verification" fires, or batch experiments on the user's account without a yes. Never assume a failed/blocked/4xx response is free; every attempt is billed. On failure, stop after ONE retry — never loop. (Origin 2026-05-29: 47 unapproved Lyria requests, half failed, cost $3.76. Adapter defaults must encode `max_retries=1` and gate auto-fire entrypoints behind explicit consent.)
 
 ---
 

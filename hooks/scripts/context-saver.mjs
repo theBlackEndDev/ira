@@ -92,8 +92,8 @@ try {
         if (memSession.sessionId) {
           const checkpoint = notepadParts.join('\n\n').slice(0, 5000);
           execSync(
-            `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts message-store ${memSession.sessionId} system ${JSON.stringify('[COMPACTION CHECKPOINT] ' + checkpoint)}`,
-            { timeout: 5000, encoding: 'utf-8' }
+            `bun run src/hook-bridge.ts message-store ${memSession.sessionId} system ${JSON.stringify('[COMPACTION CHECKPOINT] ' + checkpoint)}`,
+            { cwd: MEMORY_PROJECT, timeout: 5000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
           );
         }
       }

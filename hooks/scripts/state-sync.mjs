@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { readEvent, writeOutput } from './lib/normalize.mjs';
 
@@ -6,20 +6,34 @@ const { target, event, payload } = await readEvent();
 
 try {
   const { toolName, toolInput, toolOutput, cwd } = payload;
+  const base = cwd || process.cwd();
+  const stateDir = join(base, '.ira', 'state');
+  const agentFile = join(stateDir, 'current-agent.json');
 
-  // Track current agent from Agent tool invocations
-  if (toolName === 'Agent' && toolInput) {
+  // Agent-context lifecycle: bracket the subagent invocation so the boundary
+  // enforcer only restricts tool calls during the subagent's run. PreToolUse
+  // writes the stamp before the subagent spawns; PostToolUse and SubagentStop
+  // clear it on exit (PostToolUse covers the happy path; SubagentStop is the
+  // crash-safety net).
+  if (toolName === 'Agent' && event === 'PreToolUse' && toolInput) {
     const agentName = toolInput.subagent_type || toolInput.name || null;
     if (agentName) {
-      const base = cwd || process.cwd();
-      const stateDir = join(base, '.ira', 'state');
       mkdirSync(stateDir, { recursive: true });
-      const agentFile = join(stateDir, 'current-agent.json');
       writeFileSync(agentFile, JSON.stringify({
         agent: agentName.toLowerCase(),
         startedAt: new Date().toISOString(),
       }, null, 2));
     }
+    writeOutput(target, {});
+    process.exit(0);
+  }
+
+  if (event === 'SubagentStop' || (toolName === 'Agent' && event === 'PostToolUse')) {
+    if (existsSync(agentFile)) {
+      try { unlinkSync(agentFile); } catch {}
+    }
+    writeOutput(target, {});
+    process.exit(0);
   }
 
   // Only process Write/Edit of PRD-like files for ISC sync
@@ -72,8 +86,6 @@ try {
   }
 
   // Write state
-  const base = cwd || process.cwd();
-  const stateDir = join(base, '.ira', 'state');
   mkdirSync(stateDir, { recursive: true });
 
   const workFile = join(stateDir, 'work.json');

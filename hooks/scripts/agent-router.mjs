@@ -87,7 +87,7 @@ function readPrimaryTarget() {
 
 // ─── Agent loading ────────────────────────────────────────────────────────────
 
-function emit(obj) { console.log(JSON.stringify(obj)); }
+function emit(obj) { writeOutput('claude', obj); }
 
 function parseFrontmatter(content) {
   const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);

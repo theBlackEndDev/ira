@@ -17,6 +17,12 @@ const BASE = 'http://127.0.0.1:7775';
 /** Timeout in ms for all API calls. */
 const TIMEOUT_MS = 500;
 
+function debugLog(...args) {
+  if (process.env.IRA_HOOK_DEBUG === '1') {
+    console.error(...args);
+  }
+}
+
 /**
  * POST /conversation/log
  *
@@ -42,8 +48,8 @@ export async function logConversation({ role, content, channel, sessionId, turnI
       signal: controller.signal,
     });
   } catch (err) {
-    // Non-fatal. Log to stderr so hook output (stdout) stays clean.
-    console.error('[ira-memory] logConversation failed:', err?.message || err);
+    // Non-fatal. Keep hook output clean unless explicit hook debugging is on.
+    debugLog('[ira-memory] logConversation failed:', err?.message || err);
   } finally {
     clearTimeout(timer);
   }
@@ -72,7 +78,7 @@ export async function recallRecentConversations({ channel, limit = 20 } = {}) {
     const data = await res.json();
     return Array.isArray(data) ? data : (Array.isArray(data?.messages) ? data.messages : []);
   } catch (err) {
-    console.error('[ira-memory] recallRecentConversations failed:', err?.message || err);
+    debugLog('[ira-memory] recallRecentConversations failed:', err?.message || err);
     return [];
   } finally {
     clearTimeout(timer);
@@ -104,7 +110,7 @@ export async function recallMemory({ topic, limit = 5 } = {}) {
     if (Array.isArray(data?.memories)) return data.memories;
     return [];
   } catch (err) {
-    console.error('[ira-memory] recallMemory failed:', err?.message || err);
+    debugLog('[ira-memory] recallMemory failed:', err?.message || err);
     return [];
   } finally {
     clearTimeout(timer);

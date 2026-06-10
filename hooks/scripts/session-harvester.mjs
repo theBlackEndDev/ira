@@ -142,8 +142,8 @@ try {
         const memSession = JSON.parse(readFileSync(memSessionFile, 'utf-8'));
         if (memSession.sessionId) {
           execSync(
-            `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts session-close ${memSession.sessionId}`,
-            { timeout: 25000, encoding: 'utf-8' }
+            `bun run src/hook-bridge.ts session-close ${memSession.sessionId}`,
+            { cwd: MEMORY_PROJECT, timeout: 25000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
           );
           unlinkSync(memSessionFile);
         }

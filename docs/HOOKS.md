@@ -38,6 +38,7 @@ All hooks:
 ```json
 {
   "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
     "additionalContext": "[IRA] Ralph active. Loop until ISC verified."
   }
 }

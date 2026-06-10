@@ -34,6 +34,10 @@ function detectProjectSlug(cwd) {
 const MEMORY_PROJECT = getMemoryProject();
 const BRIDGE = MEMORY_PROJECT ? join(MEMORY_PROJECT, 'src', 'hook-bridge.ts') : null;
 
+function isPlausibleSessionId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(value);
+}
+
 try {
   const { target, event, payload } = await readEvent();
   const { cwd } = payload;
@@ -200,11 +204,11 @@ try {
   if (MEMORY_PROJECT) {
     try {
       const sessionId = execSync(
-        `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts session-open cli "Claude Code Session"`,
-        { timeout: 4000, encoding: 'utf-8' }
+        'bun run src/hook-bridge.ts session-open cli "Claude Code Session"',
+        { cwd: MEMORY_PROJECT, timeout: 4000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
       ).trim();
 
-      if (sessionId) {
+      if (isPlausibleSessionId(sessionId)) {
         const stateDir = join(base, '.ira', 'state');
         mkdirSync(stateDir, { recursive: true });
         writeFileSync(
@@ -213,8 +217,8 @@ try {
         );
 
         const dbContext = execSync(
-          `cd ${MEMORY_PROJECT} && bun run src/hook-bridge.ts recall-context ${sessionId} ${projectSlug}`,
-          { timeout: 4000, encoding: 'utf-8' }
+          `bun run src/hook-bridge.ts recall-context ${sessionId} ${projectSlug || '-'}`,
+          { cwd: MEMORY_PROJECT, timeout: 4000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
         ).trim();
 
         if (dbContext) {

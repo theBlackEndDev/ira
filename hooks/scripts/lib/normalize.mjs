@@ -36,6 +36,8 @@
 
 import { readFileSync } from 'fs';
 
+let currentHookEventName = null;
+
 /**
  * Read stdin, detect target, normalise payload.
  * @returns {{ target: "claude"|"codex", event: string, payload: object }}
@@ -57,7 +59,9 @@ export async function readEvent() {
     return { target: 'claude', event: 'unknown', payload: {} };
   }
 
-  return normalizeData(data);
+  const normalized = normalizeData(data);
+  currentHookEventName = normalized.event;
+  return normalized;
 }
 
 /**
@@ -106,6 +110,7 @@ export function normalizeData(data) {
       toolName: data.tool_name ?? data.toolName,
       toolInput: data.tool_input ?? data.toolInput,
       toolOutput: data.tool_response ?? data.tool_output ?? data.toolOutput,
+      prompt: data.prompt ?? data.user_prompt ?? data.userPrompt,
       hookEventName: data.hook_event_name || data.hookEventName,
     };
     return { target, event, payload };
@@ -131,7 +136,7 @@ export function normalizeData(data) {
     toolInput: data.tool_input,
     toolOutput: data.tool_response,   // word change: tool_response → toolOutput
     // UserPromptSubmit
-    prompt: data.prompt,
+    prompt: data.prompt ?? data.user_prompt,
     // Stop event
     stop_hook_active: data.stop_hook_active,
     last_assistant_message: data.last_assistant_message,
@@ -160,5 +165,18 @@ export function normalizeData(data) {
  * @param {object} output
  */
 export function writeOutput(_target, output) {
-  console.log(JSON.stringify(output));
+  const normalizedOutput = output && typeof output === 'object' ? { ...output } : {};
+  if (
+    normalizedOutput.hookSpecificOutput &&
+    typeof normalizedOutput.hookSpecificOutput === 'object' &&
+    !normalizedOutput.hookSpecificOutput.hookEventName &&
+    currentHookEventName &&
+    currentHookEventName !== 'unknown'
+  ) {
+    normalizedOutput.hookSpecificOutput = {
+      hookEventName: currentHookEventName,
+      ...normalizedOutput.hookSpecificOutput,
+    };
+  }
+  console.log(JSON.stringify(normalizedOutput));
 }
