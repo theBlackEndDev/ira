@@ -90,6 +90,22 @@ function isNoise(text: string): boolean {
   );
 }
 
+/**
+ * Headless `claude -p` invocations from hooks (mode classifier, session auto-namer, sentiment
+ * capture) are recorded as ordinary sessions but are pipeline machinery, not operator work.
+ * They carry no transcript-level marker; their fingerprint is the prompt preamble.
+ */
+function isHeadlessMachinery(firstUserText: string): boolean {
+  const t = firstUserText.trimStart();
+  return (
+    t.startsWith('PREVIOUS AI RESPONSE') ||      // SatisfactionCapture sentiment prompt
+    t.startsWith('SENTIMENT:') ||                 // sentiment classifier output round-trip
+    t.startsWith('CONTEXT: User:') ||             // SessionAutoName naming prompt
+    t.startsWith('SESSION CONTEXT (') ||          // mode-detection classifier prompt
+    /^classify (the |this )/i.test(t)             // generic classifier prompts
+  );
+}
+
 function extractTurns(file: string): { turns: Turn[]; sessionId: string } {
   const turns: Turn[] = [];
   let sessionId = basename(file).replace(/\.jsonl$/, '');
@@ -137,6 +153,8 @@ function main() {
     done.add(file);
 
     if (turns.length < MIN_TURNS || seenSessions.has(sessionId)) { skipped++; continue; }
+    const firstUserTurn = turns.find(t => t.role === 'user');
+    if (firstUserTurn && isHeadlessMachinery(firstUserTurn.text)) { skipped++; continue; }
     seenSessions.add(sessionId);
 
     const firstUser = turns.find(t => t.role === 'user')?.text || turns[0].text;

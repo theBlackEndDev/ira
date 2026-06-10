@@ -48,6 +48,21 @@ check "6.1 learning artifact persisted (ratings.jsonl)" "[ -f '$RAT' ]"
 echo '{"prompt":"what binds recall to memory and on what port"}' | timeout 20 bun "$HOOKS/IraRecall.hook.ts" >/dev/null 2>&1
 check "6.1 recall hook executes cleanly (exit 0)" "[ $? -eq 0 ]"
 
+# 5. WIRING — hooks passing in isolation is not enough; settings.json must actually reference
+# them. (Found live 2026-06-09: capture hooks existed but were never wired, so new sessions
+# vanished from memory after /clear. This check makes that regression class unshippable.)
+SETTINGS="$HOOKS/../settings.json"
+wired() { python3 -c "
+import json,sys
+s=json.load(open('$SETTINGS'))
+cmds=[h.get('command','') for rules in s.get('hooks',{}).get(sys.argv[1],[]) for h in rules.get('hooks',[])]
+sys.exit(0 if any(sys.argv[2] in c for c in cmds) else 1)
+" "$1" "$2"; }
+check "6.5 wiring: SessionEnd → SessionCapture (conversation + ISA persist)" "wired SessionEnd SessionCapture.hook.ts"
+check "6.5 wiring: SessionStart → LoadContext (full-ISA inject)" "wired SessionStart LoadContext.hook.ts"
+check "6.5 wiring: UserPromptSubmit → IraRecall (pgvector recall)" "wired UserPromptSubmit IraRecall.hook.ts"
+check "6.5 wiring: PostToolUse → ISASync (work.json dashboard sync)" "wired PostToolUse ISASync.hook.ts"
+
 rm -rf "$SBX"
 echo "  E2E: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] && exit 0 || exit 1
