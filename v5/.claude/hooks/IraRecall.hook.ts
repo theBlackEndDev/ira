@@ -14,9 +14,12 @@ import { recallMemory, assertLocal } from './lib/ira-memory';
 
 async function main() {
   let prompt = '';
+  let cwd: string | undefined;
   try {
     const raw = await Bun.stdin.text();
-    prompt = (JSON.parse(raw || '{}').prompt || '').toString().trim();
+    const payload = JSON.parse(raw || '{}');
+    prompt = (payload.prompt || '').toString().trim();
+    cwd = typeof payload.cwd === 'string' ? payload.cwd : undefined;
   } catch {
     process.exit(0);
   }
@@ -26,11 +29,13 @@ async function main() {
 
   try { assertLocal(); } catch { process.exit(0); } // never fire against a non-local endpoint
 
-  const facts = (await recallMemory({ topic: prompt, limit: 5 })) as Array<Record<string, unknown>>;
+  // Over-fetch (15) so the server's cwd-derived project boost has a real candidate pool to
+  // re-rank — the current project's facts float to the top, and we show only the best 5.
+  const facts = (await recallMemory({ topic: prompt, limit: 15, cwd })) as Array<Record<string, unknown>>;
   if (!facts.length) process.exit(0);
 
   let out = '\n[IRA MEMORY — relevant recall]\n';
-  for (const f of facts) {
+  for (const f of facts.slice(0, 5)) {
     const content = String(f.content ?? '').replace(/\s+/g, ' ').trim().slice(0, 220);
     if (!content) continue;
     const tag = String(f.category ?? f.type ?? 'memory');

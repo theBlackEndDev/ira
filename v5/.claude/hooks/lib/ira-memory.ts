@@ -83,11 +83,15 @@ export async function recallRecentConversations({ channel, limit = 20 }: { chann
 }
 
 /** GET /memory/recall — semantic + structured. [] on error. LOCAL embedding (free). */
-export async function recallMemory({ topic, limit = 5 }: { topic: string; limit?: number }): Promise<unknown[]> {
+export async function recallMemory({ topic, limit = 5, cwd }: { topic: string; limit?: number; cwd?: string }): Promise<unknown[]> {
   if (!topic) return [];
   assertLocal();
   const p = new URLSearchParams({ topic, limit: String(limit) });
-  const res = await call(`/memory/recall?${p}`, {}, RECALL_MS);
+  // X-Cwd lets the server derive the current project and BOOST same-project facts (soft) so
+  // recall in one repo isn't drowned by a denser project's memory. The server falls back to
+  // global ranking when cwd maps to no project, so this is always safe to send.
+  const init = cwd ? { headers: { 'X-Cwd': cwd } } : {};
+  const res = await call(`/memory/recall?${p}`, init, RECALL_MS);
   if (!res?.ok) return [];
   try {
     const d = await res.json();
