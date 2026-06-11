@@ -13,7 +13,7 @@
  * touching the real ~/.claude. --dry-run reports actions without writing.
  */
 import { cpSync, existsSync, readFileSync, writeFileSync, readdirSync, chmodSync, mkdirSync, lstatSync, unlinkSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { getPlatformAdapter, detectOS } from '../../../hooks/lib/platform';
@@ -124,6 +124,25 @@ function fillTimezone() {
   }
 }
 
+/**
+ * launchd/systemd start services with a bare PATH (/usr/bin:/bin) that omits ~/.bun/bin — so
+ * Pulse's cron subsystem, which spawns `bash -c "bun ..."` jobs (assistant-tasks, healthcheck,
+ * cost-tracker, etc.), fails every one with "bun: command not found" (exit 127). Hand the service
+ * an explicit PATH covering the bun bin dir + Homebrew + standard locations so the daemon AND the
+ * jobs it spawns resolve bun/git/docker. (ira-memory-api avoids this by calling bun via absolute
+ * path; Pulse can't, because it shells out to scripts that invoke bun by name.)
+ */
+function servicePath(): string {
+  const seen = new Set<string>();
+  return [
+    dirname(process.execPath),            // the bun that's running this installer
+    join(HOME, '.bun', 'bin'),
+    '/opt/homebrew/bin', '/opt/homebrew/sbin',   // macOS Apple Silicon
+    '/usr/local/bin', '/usr/local/sbin',         // macOS Intel / Linux
+    '/usr/bin', '/bin', '/usr/sbin', '/sbin',
+  ].filter((p) => p && !seen.has(p) && seen.add(p)).join(':');
+}
+
 function startDaemons() {
   if (!flag('start-daemons')) { log('DAEMON', 'skipped (pass --start-daemons to enable Pulse)'); return; }
   const adapter = getPlatformAdapter();
@@ -132,7 +151,7 @@ function startDaemons() {
     description: 'IRA Pulse daemon',
     command: process.execPath, // bun
     args: ['run', join(DEST, 'PAI', 'PULSE', 'pulse.ts')],
-    env: { IRA_DIR: DEST },
+    env: { IRA_DIR: DEST, PATH: servicePath() },
     workingDir: DEST,
   };
   if (DRY) { const u = adapter.renderServiceUnit(spec); log('DAEMON', `would install ${u.kind} @ ${u.path}`); return; }
