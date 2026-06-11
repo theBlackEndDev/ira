@@ -52,8 +52,37 @@ function installTree() {
       try { if (lstatSync(p).isSymbolicLink()) { unlinkSync(p); log('UNLINK', `dropped symlink ${f} (replaced by a real file)`); } } catch {}
     }
   } catch { /* DEST may not exist yet */ }
+  pruneNestedSkillSymlinks();
   cpSync(SRC_CLAUDE, DEST, { recursive: true });
   log('COPY', `installed tree → ${DEST}`);
+}
+
+/**
+ * Pre-v5 setups symlinked ~/.claude/skills/<name> into the ira repo. The top-level guard above
+ * doesn't see these (they're nested), so cpSync would write a v5 skill THROUGH the symlink into
+ * the repo's working tree. On case-INSENSITIVE filesystems (macOS) this is worse: v5 ships
+ * `Council`/`Research` (capitalized), which share a path with the lowercase `council`/`research`
+ * symlinks — so PAI's skill content leaks straight into repo/skills/council/SKILL.md.
+ *
+ * Rule: drop a nested skill symlink ONLY when v5 ships a same-name (case-insensitive) entry to
+ * replace it — so colliding/duplicated skills become real dirs, while a repo-only skill with no
+ * v5 namesake (e.g. red-team vs v5's RedTeam) keeps its symlink and is never stranded.
+ */
+function pruneNestedSkillSymlinks() {
+  const destSkills = join(DEST, 'skills');
+  const srcSkills = join(SRC_CLAUDE, 'skills');
+  if (!existsSync(destSkills) || !existsSync(srcSkills)) return;
+  let srcNames: Set<string>;
+  try { srcNames = new Set(readdirSync(srcSkills).map((n) => n.toLowerCase())); } catch { return; }
+  for (const name of readdirSync(destSkills)) {
+    const p = join(destSkills, name);
+    try {
+      if (lstatSync(p).isSymbolicLink() && srcNames.has(name.toLowerCase())) {
+        unlinkSync(p);
+        log('UNLINK', `skills/${name} (stale repo symlink → replaced by v5 real dir)`);
+      }
+    } catch { /* skip */ }
+  }
 }
 
 function mergeSettings() {
