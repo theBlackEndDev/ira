@@ -1,525 +1,149 @@
 # IRA -- Intelligent Reasoning Assistant
 
-> AI orchestration for Claude Code. Structured quality assurance meets autonomous execution.
+> A personal AI operating system for Claude Code, built on PAI 5.0. Structured quality assurance meets autonomous execution, with persistent cross-session memory.
 
-IRA combines the best of [PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) and [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) into something leaner and more powerful than either.
+IRA runs on the **PAI 5.0** architecture (Algorithm + ISA quality system, Pulse dashboard, composable skills and agents) wired to a local **pgvector-backed memory** so context follows you across sessions, surfaces, and machines.
+
+The repository is two cooperating pieces:
+
+| Piece | What it is | Lives at |
+|-------|-----------|----------|
+| **`ira`** (this repo) | The PAI 5.0 `.claude` tree, the installer, and the updater. The installer lays `v5/.claude` into your `~/.claude`. | `v5/.claude/` |
+| **`ira-memory`** | The memory backend — a Bun HTTP API on `:7775` over Postgres + pgvector. Stores long-term memory, entities, KV, and conversation logs. | separate repo (`theBlackEndDev/ira-memory`) |
+
+> The repo root also still contains the **pre-v5 IRA** (`agents/`, `skills/`, `hooks/scripts/*.mjs`, `bun run setup`). That generation has been superseded by the v5 tree and is retained only for migration reference — see [Migrating from pre-v5](#migrating-from-pre-v5).
 
 ---
 
 ## What IRA Does
 
-- **Zero ceremony for simple tasks** -- No mode selection. Just work.
-- **Full rigor for complex tasks** -- Automatic complexity classification scales ISC criteria, reviewer separation, and verification loops.
-- **23 specialized agents** with static model routing (Haiku / Sonnet / Opus)
-- **17 composable skills** in three layers (Guarantee + Enhancement + Execution)
-- **Ralph loop** -- Stop-hook blocks completion until ISC criteria are verified done
-- **Autopilot pipeline** -- Analyze -> Plan -> Build -> QA -> Verify, fully automated
-- **ISC quality system** -- Atomic, binary-testable Ideal State Criteria
-- **Learning loop** -- Ratings, reflections, and failure analysis feed back into future sessions
-- **tmux sessions** -- Persistent per-project Claude Code sessions that survive disconnects
-- **TELOS integration** -- Life-aware context for goal-aligned decisions
+- **PAI 5.0 substrate** -- the Algorithm (Current State → Ideal State via verifiable ISC), self-activating skills, named agents with distinct voices, and a SessionStart→SessionEnd hook lifecycle.
+- **Persistent memory** -- everything you do is captured on SessionEnd into both the pgvector store (`:7775`) and full-detail WORK ISAs, so the next session *knows the details* without you re-explaining.
+- **Project-scoped recall** -- recall is biased toward the repo you're in (cwd-derived), so a dense project's memory never drowns the one you're actually working on.
+- **One-command install and update** -- cross-platform (macOS + Linux); brings up the backend, installs managed services, and reinstalls the tree.
+- **Self-healing services** -- Pulse and the memory API run as launchd (macOS) / systemd-user (Linux) units that restart on failure and survive reboot.
+- **Pulse dashboard** -- a local Life/Observability dashboard at `http://localhost:31337`.
+
+---
+
+## Prerequisites
+
+- [Bun](https://bun.sh/) runtime (`~/.bun/bin` on PATH)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
+- **Docker** -- runs the `ira-memory` Postgres + pgvector container (memory backend)
+- **gitleaks** -- only needed if you seed historical transcripts (`--seed`); the seed step is gitleaks-gated and refuses to run without it
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- [Bun](https://bun.sh/) runtime
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed
-- tmux (optional, for session persistence)
-
-### Fresh Install
+### 1. Memory backend (`ira-memory`)
 
 ```bash
-git clone <repo-url> ~/ira
-cd ~/ira && bun install
-
-# Setup: creates .ira/ dirs, registers hooks, symlinks CLAUDE.md and skills,
-# generates config
-bun run setup                      # Claude Code only (default)
-bun run setup -- --target codex    # Codex CLI only
-bun run setup -- --target both     # both CLIs
-bun run setup -- --target auto     # auto-detect what's installed
+git clone git@github.com:theBlackEndDev/ira-memory.git ~/Projects/ira-memory
+cd ~/Projects/ira-memory
+cp .env.example .env          # fill DATABASE_URL (defaults to localhost:5433)
+docker compose up -d          # Postgres + pgvector
+bun install
+bunx prisma migrate deploy    # apply schema
 ```
 
-### Migrating from PAI
+### 2. IRA tree (`ira`)
 
 ```bash
-# Switch from PAI to IRA (backs up PAI first)
-bun run uninstall-pai
+git clone git@github.com:theBlackEndDev/ira.git ~/Projects/ira
+cd ~/Projects/ira
 
-# Migrate PAI data (learnings, memory, PRDs)
-bun run migrate -- --source ~/.claude
-
-# Harvest from remote machines
-bun run migrate -- --source user@server:~/.claude --harvest-only
-
-# Merge learnings from multiple machines
-bun run migrate -- \
-  --source user@server1:~/.claude \
-  --source user@server2:~/.claude \
-  --merge-learnings
+# Lays v5/.claude into ~/.claude, fills timezone, starts Pulse + memory-api services.
+# Your existing settings keys (env, permissions, mcpServers, model, principal) are preserved.
+bun v5/.claude/PAI/TOOLS/Install/install.ts --home ~ --start-daemons
 ```
 
-See [Migration Guide](docs/MIGRATION.md) for details.
+Installer flags: `--home <dir>` (target, defaults to `$HOME`), `--start-daemons` (install + start Pulse), `--seed` (import historical transcripts — gitleaks-gated), `--dry-run`, `--timezone <IANA>`.
 
----
+> The installer is **idempotent** and **settings-safe**: it backs up nothing destructively, replaces top-level symlinks with real files, prunes stale nested skill symlinks, and deep-merges your preserved settings keys back in.
 
-## Codex CLI Support
-
-IRA runs on Codex CLI 0.125+ with the `codex_hooks` feature (stable, enabled by default).
+### 3. Verify
 
 ```bash
-bun run setup -- --target codex    # Codex only
-bun run setup -- --target both     # Claude Code + Codex
+curl -s http://127.0.0.1:7775/health           # {"status":"ok","backend":"ira-memory","port":7775}
+open http://localhost:31337                      # Pulse / PAI Observatory dashboard
 ```
-
-What gets installed: `~/.codex/skills/`, `~/.codex/AGENTS.md` (symlink to the same `CLAUDE.md` source), and `~/.codex/hooks.json`. The `[features].codex_hooks=true` flag is written to `~/.codex/config.toml` for forward-compatibility.
-
-**What works / what's degraded:**
-
-| | Works | Degraded / absent |
-|--|-------|-------------------|
-| **Codex** | Keyword routing, Ralph loop (Stop blocking confirmed), ISC sync on Bash tool use, memory API (:7775), skills, agents-as-role-prompts | No `Agent` tool dispatch (agents become inline role hints), no `PreCompact` (skipped), `PostToolUse` only fires for Bash |
-
-See [docs/CODEX.md](docs/CODEX.md) for the full compatibility matrix, field-naming differences, and model tier map.
 
 ---
 
-## Architecture
+## Keeping Current
 
-```
-User Input
-    |
-    v
-+-----------------------------------------------+
-|  HOOKS (enforcement layer -- 7 lifecycle hooks)|
-|  SessionStart  -> context, TELOS, memory, user |
-|  UserPromptSubmit -> keywords, complexity      |
-|  PreToolUse    -> agent boundary enforcement   |
-|  PostToolUse   -> ISC sync, agent tracking     |
-|  PreCompact    -> save state before compaction |
-|  Stop          -> Ralph loop (block if active) |
-|  SessionEnd    -> harvest ratings, archive     |
-+---------------------+-------------------------+
-                      |
-                      v
-+-----------------------------------------------+
-|  COMPLEXITY CLASSIFIER (automatic)             |
-|                                                |
-|  Simple       -> Direct execution, no ISC      |
-|  Standard     -> 8+ ISC criteria               |
-|  Deep         -> 24+ ISC, full algorithm       |
-|  Comprehensive -> 64+ ISC, Ralph guarantee     |
-+---------------------+-------------------------+
-                      |
-                      v
-+-----------------------------------------------+
-|  AGENTS (23 specialists)                       |
-|                                                |
-|  Tier 1 Haiku:  scout, formatter, explorer     |
-|  Tier 2 Sonnet: executor, debugger, tester,    |
-|    designer, content-writer, social-ops,       |
-|    git-ops, security-reviewer, code-reviewer,  |
-|    perf-reviewer, test-reviewer, pr-resolver   |
-|  Tier 3 Opus:   architect, analyst, critic,    |
-|    brand-strategist, scientist, planner,       |
-|    verifier, review-synthesizer                |
-+---------------------+-------------------------+
-                      |
-                      v
-+-----------------------------------------------+
-|  SKILLS (three-layer composition)              |
-|                                                |
-|  Guarantee:   ralph, verify, autopilot         |
-|  Enhancement: ultrawork, git-ops, anti-slop,   |
-|               compound, cancel                 |
-|  Execution:   build, research, plan, analyze,  |
-|               council, red-team, review,       |
-|               brainstorm, pr-resolve           |
-+---------------------+-------------------------+
-                      |
-                      v
-+-----------------------------------------------+
-|  STATE (.ira/ -- hook-managed persistence)     |
-|                                                |
-|  state/    -> ralph, autopilot, ultrawork,     |
-|               current-agent, work.json         |
-|  learning/ -> ratings.jsonl, reflections,      |
-|               failures, synthesis              |
-|  memory/   -> project memory files             |
-|  telos/    -> life-context markdown files       |
-|  user/     -> steering rules, opinions, style  |
-+-----------------------------------------------+
-```
-
-See [Architecture Deep Dive](docs/ARCHITECTURE.md) for full system design.
-
----
-
-## Agents
-
-23 agents across 3 model tiers. Role boundaries enforced by the `boundary-enforcer` hook -- agents with `disallowedTools: ["Write", "Edit"]` are blocked from writing code.
-
-| Agent | Tier | Model | Role | Read-Only |
-|-------|------|-------|------|-----------|
-| scout | 1 | Haiku | Quick file lookups, simple checks | Yes |
-| formatter | 1 | Haiku | Code formatting, cleanup | No |
-| explorer | 1 | Haiku | Codebase navigation, file search | Yes |
-| executor | 2 | Sonnet | Implementation, standard coding | No |
-| debugger | 2 | Sonnet | Bug isolation, root cause analysis | No |
-| test-engineer | 2 | Sonnet | Test writing, coverage analysis | No |
-| designer | 2 | Sonnet | UI/UX implementation | No |
-| content-writer | 2 | Sonnet | Documentation, copy, content | No |
-| social-ops | 2 | Sonnet | Social media content, scheduling | No |
-| git-ops | 2 | Sonnet | Git operations, PR management | No |
-| security-reviewer | 2 | Sonnet | Vulnerability scanning, OWASP | No |
-| code-reviewer | 2 | Sonnet | Quality review, patterns | Yes |
-| perf-reviewer | 2 | Sonnet | Performance review (N+1, I/O, complexity) | No |
-| test-reviewer | 2 | Sonnet | Test adequacy (coverage, assertions, mocks) | No |
-| pr-resolver | 2 | Sonnet | PR feedback triage and resolution | No |
-| architect | 3 | Opus | System design, decisions | Yes |
-| analyst | 3 | Opus | Requirements, ISC decomposition | Yes |
-| critic | 3 | Opus | Plan validation, adversarial review | Yes |
-| brand-strategist | 3 | Opus | Brand positioning, strategy | Yes |
-| scientist | 3 | Opus | Hypothesis testing, experiments | Yes |
-| planner | 3 | Opus | Implementation planning | No |
-| verifier | 3 | Opus | Acceptance verification, evidence | Yes |
-| review-synthesizer | 3 | Opus | Aggregate multi-reviewer findings | Yes |
-
-See [Agent Reference](docs/AGENTS.md) for full definitions.
-
----
-
-## Skills
-
-17 skills in three composable layers:
-
-```
-GUARANTEE (wraps everything)
-  ralph       -- Loop until all ISC verified. Stop-hook enforced.
-  verify      -- Evidence required for every claim.
-  autopilot   -- Full pipeline: analyze -> plan -> build -> QA -> verify.
-
-ENHANCEMENT (additive modifiers)
-  ultrawork   -- Maximum parallelization (6 concurrent agents).
-  git-ops     -- Commit management, branch ops, PR creation.
-  anti-slop   -- Post-implementation cleanup. Remove AI cruft.
-  compound    -- Extract reusable solution docs from session work.
-  cancel      -- Deactivate active modes.
-
-EXECUTION (primary skill)
-  build       -- Implementation work. Routes to executor/architect.
-  research    -- Multi-agent parallel investigation.
-  plan        -- Consensus planning: analyst + architect + critic.
-  analyze     -- Deep root-cause analysis with 5-Whys + reproduction protocol.
-  council     -- 4-agent multi-perspective debate.
-  red-team    -- Adversarial stress-testing from 3 attack angles.
-  review      -- Multi-lens code review (4 parallel reviewers + synthesis).
-  brainstorm  -- Pressure-test requirements before planning.
-  pr-resolve  -- Triage and fix PR review feedback.
-```
-
-Compose them naturally: `ralph build with ultrawork and anti-slop` = parallel implementation that loops until verified with mandatory cleanup.
-
-See [Skills Reference](docs/SKILLS.md) for all skills.
-
----
-
-## Keywords
-
-Natural language triggers detected by the `keyword-detector` hook:
-
-| Keyword | What Happens |
-|---------|-------------|
-| `ralph` | Activate Ralph loop + ultrawork. Loop until verified. |
-| `autopilot` | Full pipeline: analyze -> plan -> build -> QA -> verify |
-| `ultrawork` | Maximum parallelization across agents |
-| `council` | 4 agents debate from different perspectives |
-| `red team` | Adversarial stress-test from security, scale, and UX angles |
-| `research` | Multi-agent parallel investigation |
-| `plan` | Consensus architecture planning with critic review |
-| `analyze` | Deep root-cause analysis |
-| `anti-slop` | Code cleanup pass |
-| `review` | Multi-lens code review (4 parallel reviewers + synthesis) |
-| `brainstorm` | Pressure-test requirements before planning |
-| `pr resolve` | Triage and fix PR review feedback |
-| `compound` | Extract reusable solution doc from session |
-| `cancel [mode]` | Cancel the named mode (e.g., "cancel ralph") |
-
-Intent filtering prevents false activation -- "what is ralph?" won't trigger the skill.
-
----
-
-## The Ralph Loop
-
-Ralph is IRA's persistence guarantee. A Stop-hook blocks Claude from finishing until ISC criteria are verified complete.
-
-```
-User: "ralph build the auth system"
-  |
-  v
-keyword-detector creates .ira/state/ralph-state.json
-  |
-  v
-Claude implements auth system, generates ISC criteria
-  |
-  v
-Claude tries to stop -> ralph-loop.mjs fires
-  |
-  +-- All ISC checked in work.json? -> Allow stop. Clean exit.
-  |
-  +-- Criteria remaining? -> Block stop.
-      "[RALPH LOOP -- Iteration 3/25] Continue working."
-      |
-      v
-      Claude continues -> tries to stop -> repeat
-```
-
-**Safety mechanisms:**
-- 2-hour staleness timeout -- auto-deactivates stale loops
-- Context limit stop -- never blocked
-- User abort (`Ctrl+C`) -- always respected
-- 25 iteration cap -- deactivates and reports what remains
-
----
-
-## ISC Quality System
-
-Every non-trivial task is decomposed into Ideal State Criteria -- atomic, binary-testable statements of what "done" looks like.
-
-**The Splitting Test** (applied to every criterion):
-
-1. Contains "and"/"with" joining two verifiable things? -> Split
-2. Can part A pass while part B fails? -> Split
-3. Contains "all"/"every"? -> Enumerate specifics
-4. Crosses domain boundaries (UI/API/data)? -> One per domain
-
-See [Quality System](docs/QUALITY.md) for full ISC methodology.
-
----
-
-## CLI + tmux Sessions
-
-IRA includes a CLI for managing persistent Claude Code sessions. Each project gets its own tmux session that survives disconnects, reboots, and SSH drops.
-
-**Requires:** `tmux` (`sudo apt install tmux`)
-
-### Setup
-
-Add the alias to your shell (already done if you ran setup):
-```bash
-# In ~/.zshrc or ~/.bashrc
-alias ira='bun run --cwd /path/to/ira cli --'
-```
-
-### Starting Sessions
+`bun run update` is the one command to bring a machine up to date — it pulls both repos, updates the backend, reinstalls the tree, and restarts services.
 
 ```bash
-# Start a session for a project (auto-names from directory)
-ira tmux start --cwd ~/projects/foundry        # creates "ira-foundry"
-ira tmux start --cwd ~/projects/refinery        # creates "ira-refinery"
-
-# Start with explicit name
-ira tmux start myapp --cwd ~/projects/myapp
-
-# Start from inside a project directory (uses dirname as session name)
-cd ~/projects/foundry && ira tmux start
+cd ~/Projects/ira
+bun run update                 # full update
+bun run update:dry-run         # preview every action, change nothing
 ```
 
-Each session opens Claude Code in the project directory. You're auto-attached after creation.
+What it does, in order:
+1. **Backs up** `~/.claude` (excludes the large `projects/` corpus) — skip with `--no-backup`.
+2. **Fast-forward pulls** `ira` and `ira-memory` (stops on dirty tracked files unless `--force`, which autostashes).
+3. **Updates the backend** — `bun install`, brings up the DB (`docker compose up -d`), and runs `prisma migrate deploy` (retries while the DB warms).
+4. **Installs/refreshes the managed `ira-memory-api` service** (systemd/launchd) and restarts it.
+5. **Reruns the IRA installer** (`--start-daemons`), restarting Pulse.
+6. **Health-checks** `:7775` and `:31337`.
 
-### Attaching / Reconnecting
+Flags: `--dry-run`, `--no-backup`, `--seed`, `--force`. If your repos live outside the default paths, set `IRA_MEMORY_REPO` (or `IRA_MEMORY_PROJECT`) — the `ira` repo is auto-located from the script's own path.
 
-```bash
-# Reattach to a session after disconnect
-ira tmux attach foundry
-
-# If only one session exists, no name needed
-ira tmux attach
-
-# If multiple sessions exist, it lists them for you to pick
-ira tmux attach
-#   Multiple IRA sessions found. Specify one:
-#     ira-foundry
-#     ira-refinery
-#     ira-ira
-```
-
-### Detaching (without stopping)
-
-From inside a tmux session, use the standard tmux detach:
-- **`Ctrl+B` then `D`** -- detach from session (Claude keeps running)
-- **`Ctrl+B` then `D`** is the most important shortcut -- it lets you leave without killing work
-
-### Listing Sessions
-
-```bash
-ira tmux list
-
-#   SESSION                 DIRECTORY                               CREATED               STATUS
-#   ----------------------------------------------------------------...
-#   ira-foundry             /home/user/projects/foundry             4/5/2026, 10:30 AM    attached
-#   ira-refinery            /home/user/projects/refinery            4/5/2026, 11:15 AM    detached
-#   ira-ira                 /home/user/golden-claw-workspace/ira    4/5/2026, 9:00 AM     detached
-```
-
-### Stopping Sessions
-
-```bash
-# Kill a specific session
-ira tmux kill foundry
-
-# If only one session, no name needed
-ira tmux kill
-```
-
-### Team Mode (Parallel Agents)
-
-Spawn multiple Claude instances in tmux panes, each given an agent role:
-
-```bash
-# 3 executor agents fixing TypeScript errors in parallel
-ira team 3:executor "fix all TypeScript errors"
-
-# 2 debuggers investigating a crash
-ira team 2:debugger "investigate the auth timeout crash in production logs"
-
-# 4 test-engineers writing tests for different modules
-ira team 4:test-engineer "write e2e tests for the user dashboard"
-```
-
-Each pane runs `claude --prompt "[agent] your prompt"`. Panes are auto-tiled.
-
-### Checking Status
-
-```bash
-ira status
-
-#   IRA Status
-#   ========================================
-#
-#   Active Modes:
-#     ON  ralph
-#     ON  ultrawork
-#     OFF autopilot
-#
-#   Work Items:
-#     auth-system.prd.md: 18/24 ISC complete (75%)
-#
-#   Active Sessions:
-#     ira-foundry
-#     ira-refinery
-```
-
-### Quick Reference
-
-| Command | What It Does |
-|---------|-------------|
-| `ira tmux start [name] [--cwd path]` | Create and attach to a new session |
-| `ira tmux attach [name]` | Reattach to an existing session |
-| `ira tmux list` | List all IRA sessions with status |
-| `ira tmux kill [name]` | Stop and remove a session |
-| `ira team N:agent "prompt"` | N parallel Claude panes with agent role |
-| `ira status` | Show modes, ISC progress, sessions |
-| `ira help` | Full usage info |
-| `Ctrl+B, D` | Detach from session (keeps it running) |
-| `Ctrl+B, [` | Scroll up in tmux (exit with `q`) |
-| `Ctrl+B, c` | New tmux window in same session |
-| `Ctrl+B, n` / `Ctrl+B, p` | Next / previous tmux window |
-
-### Typical Workflow
-
-```bash
-# Morning: start sessions for your projects
-ira tmux start foundry --cwd ~/projects/foundry
-# ... work with Claude on foundry ...
-
-# Switch to another project (detach first)
-# Ctrl+B, D
-ira tmux start refinery --cwd ~/projects/refinery
-
-# Later: reconnect to foundry where you left off
-ira tmux attach foundry
-
-# End of day: check what's running
-ira tmux list
-
-# Clean up finished work
-ira tmux kill refinery
-```
+> **Multi-machine note:** memory is per-machine by default (each box has its own Postgres). To share one memory across machines, point every machine's `IRA_MEMORY_URL` at a single backend instead of standing up a local one.
 
 ---
 
-## Hooks
+## Services
 
-7 lifecycle hooks enforce behavior the AI cannot forget:
+The installer/updater manage two long-running user services. Both restart on failure and survive reboot (Linux needs `loginctl enable-linger $USER` once on headless boxes).
 
-| Event | Script | What It Does | Codex |
-|-------|--------|-------------|-------|
-| SessionStart | `context-loader.mjs` | Project-scoped loader: detects active project slug, then loads TELOS, project memory, active modes, learning signals, user config. Outside a recognized project directory it injects nothing. | ✅ |
-| UserPromptSubmit | `keyword-detector.mjs` | Keyword detection, complexity classification, state creation | ✅ |
-| UserPromptSubmit | `agent-router.mjs` | Semantic agent routing — emits `[IRA ROUTE]` hint suggesting the best agent for the prompt. Two-layer classifier (regex + LLM fallback). See [Agent Routing](#agent-routing) below. | ✅ |
-| PreToolUse | `boundary-enforcer.mjs` | Blocks disallowed tools for read-only agents | ✅ (Bash only) |
-| PostToolUse | `state-sync.mjs` | ISC progress tracking, agent identity tracking | ✅ (Bash only) |
-| PreCompact | `context-saver.mjs` | Saves ISC progress and mode state before context compaction | ❌ skipped |
-| Stop | `ralph-loop.mjs` | Blocks premature stops when ralph is active | ✅ confirmed |
-| SessionEnd | `session-harvester.mjs` | Archives mode states, captures ISC ratings, writes events | ✅ via Stop (`stop_hook_active=false`) |
+| Service | Port | What | Unit |
+|---------|------|------|------|
+| **ira-pulse** | 31337 | Pulse — Life/Observability dashboard (`PAI Observatory`) | launchd `com.ira.ira-pulse` / systemd `ira-pulse` |
+| **ira-memory-api** | 7775 | Memory HTTP API over Postgres + pgvector | launchd `com.ira.ira-memory-api` / systemd `ira-memory-api` |
 
-All hooks fire on both Claude Code and Codex with target-normalized payloads (the `hooks/scripts/lib/normalize.mjs` utility remaps Codex snake_case fields to the Claude camelCase shape that hook scripts expect). All hooks fail gracefully (exit 0, output `{}`). They never crash Claude Code or Codex.
-
-See [Hooks Reference](docs/HOOKS.md) for details.
+The service env carries an explicit `PATH` (bun bin + Homebrew + standard dirs) so Pulse's cron jobs resolve `bun`/`git`/`docker` even under launchd/systemd's minimal environment.
 
 ---
 
-## Agent Routing
+## Memory & Recall
 
-When you submit a prompt, the `agent-router.mjs` hook classifies it against the agent catalog and emits a hint as additional context — for example `[IRA ROUTE] Prompt matches: debugger (regex, confidence: high). triggers: \berror\b, \bthrows?\b. Consider invoking via Agent tool.` The orchestrator then chooses whether to delegate via the Agent tool. Hints, not forced delegation.
+Memory is the core of IRA. Two write paths fire on **SessionEnd** (the `SessionCapture` hook), so work done in a session is never lost after `/clear`:
 
-Two-layer classifier:
+1. **Conversation → `:7775`** via `ira-memory`'s `cc-capture` — powers `/conversation/recent`, search, and the resume-session skill.
+2. **Transcript → WORK ISA** via the gitleaks-gated seeder — preserves the session's user/assistant turns verbatim (not a lossy summary), so SessionStart can auto-inject the full active ISA.
 
-1. **Regex layer (fast, ~30ms).** Each agent declares trigger patterns in its frontmatter (`triggers:` array in `agents/<name>.md`). Any match wins. New agents auto-register — no separate route map to maintain.
-2. **LLM layer (semantic, ~500ms–10s).** Fires only when the regex layer finds zero matches. Calls Claude Haiku to handle paraphrases the regex can't catch ("the page is bonkers when I click submit twice" → debugger).
+On **UserPromptSubmit**, the `IraRecall` hook does project-scoped semantic recall:
 
-**LLM authentication:**
-- **Fast path (~1–2s):** set `ANTHROPIC_API_KEY` to either:
-  - An **OAuth token** from `claude setup-token` (format `sk-ant-oat...`) — works with your existing Max subscription, no separate billing. Router auto-detects the token type and uses `Authorization: Bearer` + the OAuth beta header.
-  - An **API key** from console.anthropic.com (format `sk-ant-api...`) — pay-as-you-go, separate from Max.
-  Either way, `export ANTHROPIC_API_KEY=<token>` in your shell rc.
-- **Slow path (~6–10s):** if no key is set, the router shells out to `claude --print` using your Max OAuth via the CLI. Works out of the box but heavyweight (full Claude Code CLI startup on each call).
+- It passes your **cwd** to the server, which derives the current project and **boosts** same-project facts (a soft additive boost — other projects still surface, so a sparse/new project never returns an empty recall).
+- Project slugs are derived from both `~/Projects/<slug>/` and `/orchestrator/projects/<slug>/` layouts.
+- **Explicit** scoping (`?project=` / `X-Project`, used by resume-session) is a *hard* filter; **cwd-derived** scoping is a *soft* boost. Clean intent split.
 
-**Skill keywords skip the router.** When the prompt contains `ralph`, `autopilot`, `plan`, `analyze`, etc. the router defers — those skills already orchestrate multiple agents.
+To tag a machine's historical facts so the boost has data to lift, run once:
 
-**Opt out:** `export IRA_ROUTER_LLM=0` (regex only). The router itself runs unconditionally; only the LLM fallback is disabled.
-
-**Add a new agent and have it auto-route:**
-```yaml
----
-name: my-agent
-description: Use this agent when the user asks for X. Use proactively.
-triggers:
-  - '\bsome pattern\b'
-  - '\banother phrase\b'
-model: claude-sonnet-4-6
-tier: 2
-disallowedTools: []
----
+```bash
+cd ~/Projects/ira-memory
+bun run src/backfill-project-tags.ts --dry-run    # preview groups + counts
+bun run src/backfill-project-tags.ts              # apply (idempotent)
 ```
-The router reads `agents/*.md` at runtime, so adding a file is enough.
+
+Only sessions that recorded a cwd are taggable; everything captured going forward tags automatically.
 
 ---
 
-## Memory & Conversation API
+## Memory & Conversation API (`:7775`)
 
-A persistent memory HTTP API runs on `http://127.0.0.1:7775`, backed by ira-memory (Postgres + pgvector). Every channel (Discord, Telegram, CLI, webchat) reads and writes through the same endpoints, so context follows the user across sessions and surfaces.
+A persistent HTTP API runs on `http://127.0.0.1:7775`, backed by ira-memory (Postgres + pgvector). Every channel (Discord, Telegram, CLI, webchat) reads and writes through the same endpoints.
 
 **Long-term memory** -- typed (`user` / `feedback` / `project` / `reference`), semantic recall via pgvector:
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/memory` | Store `{name, type, content, description}` |
-| GET | `/memory/recall?topic=...` | Semantic + structured recall |
+| GET | `/memory/recall?topic=...` | Semantic + structured recall (accepts `?project=` or `X-Cwd` for scoping) |
 | GET | `/memory/search?q=...` | Full-text search |
 | GET | `/memory/list?limit=50` | List recent memories |
 | DELETE | `/memory/<id>` | Archive |
@@ -532,7 +156,7 @@ A persistent memory HTTP API runs on `http://127.0.0.1:7775`, backed by ira-memo
 | GET | `/entity/search?q=...` | Search entities |
 | GET / PUT / DELETE | `/kv/<key>` | Scratch state for cron, last-run timestamps, flags |
 
-**Conversation logging** -- every user message and assistant response on a channel must be logged:
+**Conversation logging** -- every user message and assistant response on a channel should be logged:
 
 ```bash
 curl -s -X POST http://127.0.0.1:7775/conversation/log \
@@ -541,66 +165,101 @@ curl -s -X POST http://127.0.0.1:7775/conversation/log \
     '{role:$role, content:$content, channel:$channel}')"
 ```
 
-Retrieval is via `GET /conversation/recent?limit=20&channel=discord` and `GET /conversation/search?q=...`. Messages are grouped into per-channel sessions automatically and embedded async into pgvector for later semantic recall.
+Retrieval: `GET /conversation/recent?limit=20&channel=discord` (also accepts `project=<slug>`) and `GET /conversation/search?q=...`. Messages group into per-channel sessions automatically and embed async into pgvector for later semantic recall.
 
 Health: `GET /health` -> `{"status":"ok","backend":"ira-memory","port":7775}`.
 
-The `memoryProject` setting under `integrations` (see [Configuration](#configuration)) points at the absolute path of the ira-memory project so the hook bridge can connect.
+---
+
+## Agents
+
+18 PAI agents, including cross-vendor code producers and a research fleet. A few key ones:
+
+| Agent | Role |
+|-------|------|
+| Engineer | Claude-family principal engineer — TDD, implementation |
+| Forge | OpenAI-family (GPT-5.4 via `codex exec`) — code quality + completeness |
+| Anvil | Moonshot-family (Kimi K2.6) — long-context, whole-project code generation |
+| Architect | System design, specs, implementation plans |
+| Cato | Cross-vendor ISA auditor (read-only, end of VERIFY on deep work) |
+| Designer | UX/UI implementation |
+| Silas | Offensive-security specialist (parallel sub-assessments) |
+| Algorithm | ISC creation/evolution across Algorithm phases |
+| Researchers | Claude / Gemini / Grok / Perplexity / Codex research fleet |
+
+Full definitions live in `v5/.claude/agents/*.md`.
 
 ---
 
-## Learning Loop
+## Skills
 
-Every session feeds back into improvement:
+59 self-activating skills span execution, research, content, security, media, and meta-tooling — composed as needed by the Algorithm. Highlights:
 
-```
-Session Work -> ISC progress captured in ratings.jsonl
-             -> Low ratings (<=3) injected as warnings on next SessionStart
-             -> Failure dumps preserved in learning/failures/
-             -> Pattern synthesis in learning/synthesis/
-```
+- **Execution / quality:** `build`, `plan`, `analyze`, `review`, `verify`, `ralph`, `autopilot`, `anti-slop`, `ISA`, `Delegation`
+- **Reasoning:** `Council`, `RedTeam`, `FirstPrinciples`, `SystemsThinking`, `BeCreative`, `Ideate`, `ApertureOscillation`
+- **Research / knowledge:** `Research`, `ArXiv`, `ExtractWisdom`, `Knowledge`, `Fabric`, `ContextSearch`
+- **Web / browser:** `Interceptor` (verification), `Browser`, `BrightData`, `Apify`, `playwriter`
+- **Media:** `Art`, `Remotion`, `AudioEditor`
+- **Meta:** `CreateSkill`, `CreateCLI`, `Agents`, `PAIUpgrade`, `BitterPillEngineering`
 
-Learnings persist in `.ira/learning/` and are loaded by `context-loader.mjs` on session start.
-
-See [Learning System](docs/LEARNING.md) for details.
+Browse `v5/.claude/skills/`. Each skill is a `SKILL.md` with optional `Workflows/`, `Tools/`, and reference files.
 
 ---
 
-## Configuration
+## CLI + tmux Sessions
 
-Created by `setup.ts` at `~/.config/ira/config.jsonc`:
+IRA includes a CLI (`scripts/ira-cli.ts`) for persistent per-project Claude Code sessions that survive disconnects and reboots.
 
-```jsonc
-{
-  // Model overrides per agent (optional)
-  "agents": {
-    "executor": { "model": "claude-sonnet-4-6" },
-    "architect": { "model": "claude-opus-4-6" }
-  },
-  // Feature flags
-  "features": {
-    "ralph": true,
-    "ultrawork": true,
-    "anti-slop": true,
-    "tmux": true
-  },
-  // TELOS integration
-  "telos": {
-    "enabled": true,
-    "path": "~/.ira/telos/"
-  },
-  // Learning
-  "learning": {
-    "auto-capture-ratings": true,
-    "failure-dump-threshold": 3
-  },
-  // External integrations
-  "integrations": {
-    // Absolute path to ira-memory project (enables DB-backed session memory)
-    // Can also be set via IRA_MEMORY_PROJECT env var
-    "memoryProject": null
-  }
-}
+```bash
+# Add the alias (or run via `bun run cli -- <cmd>`)
+alias ira='bun run --cwd ~/Projects/ira cli --'
+
+ira tmux start [name] [--cwd path]   # create + attach a session
+ira tmux attach [name]               # reattach after disconnect
+ira tmux list                        # list sessions with status
+ira tmux kill [name]                 # stop a session
+ira team N:agent "prompt"            # N parallel Claude panes with an agent role
+ira status                           # modes, ISC progress, sessions
+```
+
+`Ctrl+B, D` detaches without killing the session. Requires `tmux`.
+
+---
+
+## Migrating from pre-v5
+
+The repo root still carries the previous-generation IRA (root `setup.ts`, `.mjs` hooks, 23-agent / 17-skill layout, Codex dual-target). It is superseded by the v5 install above. The legacy scripts remain available for one-time migration:
+
+```bash
+bun run uninstall-pai            # back up + remove a prior PAI/old-IRA install
+bun run uninstall-pai:dry-run    # preview
+bun run uninstall-pai:restore    # restore from backup
+bun run migrate -- --source ~/.claude   # migrate old learnings/memory/PRDs
+```
+
+New machines should install the v5 tree directly and skip these.
+
+---
+
+## npm Scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `update` | `bun run update` | Pull both repos, update backend, reinstall, restart services |
+| `update:dry-run` | `bun run update:dry-run` | Preview the update, change nothing |
+| `cli` | `bun run cli -- <cmd>` | CLI (tmux, team, status) |
+| `test` | `bun test` | Run tests |
+| `test:hooks` | `bun test hooks/` | Hook tests |
+| `lint` | `bunx tsc --noEmit` | TypeScript type check |
+| `setup` | `bun run setup` | *(legacy)* pre-v5 root install |
+| `migrate` | `bun run migrate -- --source <path>` | *(legacy)* migrate pre-v5 data |
+| `uninstall-pai` | `bun run uninstall-pai` | *(legacy)* remove a prior PAI/old-IRA install |
+
+Direct entry points (not npm scripts):
+
+```bash
+bun v5/.claude/PAI/TOOLS/Install/install.ts --home ~ --start-daemons   # install / cut over
+bun ~/Projects/ira-memory/src/backfill-project-tags.ts                 # tag historical memory by project
 ```
 
 ---
@@ -609,78 +268,36 @@ Created by `setup.ts` at `~/.config/ira/config.jsonc`:
 
 ```
 ira/
-+-- CLAUDE.md              # System prompt -- injected into every session
-+-- agents/                # 23 agent definitions (.md with YAML frontmatter)
-+-- skills/                # 17 skill definitions (SKILL.md per skill)
-|   +-- ralph/             # Guarantee: completion loop
-|   +-- verify/            # Guarantee: evidence-based verification
-|   +-- autopilot/         # Guarantee: full pipeline orchestration
-|   +-- ultrawork/         # Enhancement: parallelization
-|   +-- git-ops/           # Enhancement: commit management
-|   +-- anti-slop/         # Enhancement: code cleanup
-|   +-- compound/          # Enhancement: solution documentation
-|   +-- cancel/            # Enhancement: mode deactivation
-|   +-- build/             # Execution: implementation
-|   +-- research/          # Execution: multi-agent investigation
-|   +-- plan/              # Execution: consensus planning
-|   +-- analyze/           # Execution: root-cause analysis
-|   +-- council/           # Execution: multi-perspective debate
-|   +-- red-team/          # Execution: adversarial stress-testing
-|   +-- review/            # Execution: multi-lens code review
-|   +-- brainstorm/        # Execution: requirements pressure-testing
-|   +-- pr-resolve/        # Execution: PR feedback resolution
-+-- hooks/                 # 7 lifecycle hook scripts
-|   +-- hooks.json         # Hook registration
-|   +-- scripts/           # Hook implementations (.mjs)
-+-- scripts/               # Setup, migration, CLI
-|   +-- setup.ts           # First-time installation
-|   +-- ira-cli.ts         # CLI (tmux, team, status)
-|   +-- migrate-from-pai.ts# PAI data migration
-|   +-- uninstall-pai.ts   # PAI removal + IRA hook registration
-+-- docs/                  # Extended documentation
-|   +-- ARCHITECTURE.md    # System design
-|   +-- AGENTS.md          # Agent reference
-|   +-- SKILLS.md          # Skills reference
-|   +-- HOOKS.md           # Hook system
-|   +-- QUALITY.md         # ISC methodology
-|   +-- AUTOMATION.md      # Actions, Pipelines, Flows (planned)
-|   +-- TELOS.md           # Life-context system
-|   +-- LEARNING.md        # Learning loop
-|   +-- MIGRATION.md       # PAI migration guide
-+-- src/                   # TypeScript infrastructure (planned)
-+-- .ira/                  # Runtime state (git-ignored)
++-- v5/                         # the live system (PAI 5.0)
+|   +-- .claude/
+|   |   +-- CLAUDE.md           # system prompt
+|   |   +-- settings.json       # hook + service wiring
+|   |   +-- agents/             # 18 PAI agents
+|   |   +-- skills/             # 59 skills (SKILL.md + Workflows/Tools)
+|   |   +-- hooks/              # lifecycle hooks (LoadContext, IraRecall, SessionCapture, ...)
+|   |   |   +-- lib/            # platform adapter, ira-memory client, normalize
+|   |   |   +-- tests/          # E2E + platform + wiring assertions
+|   |   +-- PAI/
+|   |       +-- TOOLS/Install/install.ts   # the installer
+|   |       +-- TOOLS/Seed/                # gitleaks-gated transcript seeder
+|   |       +-- PULSE/          # Pulse daemon (dashboard :31337)
+|   |       +-- MEMORY/WORK/    # per-session WORK ISAs (full-detail capture)
+|   +-- CUTOVER.md              # cutover + rollback runbook
+|   +-- PROVENANCE.txt          # upstream PAI SHA this tree derives from
++-- scripts/
+|   +-- update.ts               # cross-platform updater (bun run update)
+|   +-- ira-cli.ts              # tmux/team/status CLI
+|   +-- setup.ts / migrate-from-pai.ts / uninstall-pai.ts   # legacy (pre-v5)
++-- agents/  skills/  hooks/    # legacy pre-v5 IRA (retained for migration)
++-- docs/                       # extended docs
 +-- package.json
-+-- tsconfig.json
 ```
-
----
-
-## npm Scripts
-
-| Script | Command | Description |
-|--------|---------|-------------|
-| `setup` | `bun run setup` | First-time installation |
-| `cli` | `bun run cli -- <cmd>` | CLI (tmux, team, status) |
-| `migrate` | `bun run migrate -- --source <path>` | PAI data migration |
-| `uninstall-pai` | `bun run uninstall-pai` | Remove PAI, install IRA |
-| `uninstall-pai:dry-run` | `bun run uninstall-pai:dry-run` | Preview PAI removal |
-| `uninstall-pai:restore` | `bun run uninstall-pai:restore` | Restore PAI from backup |
-| `test` | `bun test` | Run tests |
-| `lint` | `bun run lint` | TypeScript type check |
 
 ---
 
 ## Credits
 
-IRA stands on the shoulders of three excellent projects:
-
-- **[PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure)** by Daniel Miessler -- ISC quality system, Algorithm structured execution, TELOS life context, Actions/Pipelines/Flows, continuous learning loop, SYSTEM/USER separation pattern.
-
-- **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** by Yeachan Heo -- Ralph stop-hook persistence, three-layer skill composition, agent XML prompts with role boundaries, keyword detection with intent filtering, anti-slop as a first-class step, autopilot pipeline.
-
-- **[oh-my-codex](https://github.com/Yeachan-Heo/oh-my-codex)** by Yeachan Heo -- the Codex CLI equivalent of oh-my-claudecode; informed IRA's Codex hook integration and served as an independent sanity check on the empirically-derived Codex hook schema.
-
-IRA combines PAI's quality rigor with OMC's execution efficiency, now extended to Codex CLI.
+IRA is built on **[PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure)** by Daniel Miessler — the Algorithm, ISC quality system, skills/agents architecture, Pulse, and TELOS life context. Earlier generations also drew on **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** by Yeachan Heo (Ralph stop-hook persistence, three-layer skill composition, keyword detection).
 
 ---
 
