@@ -8,3 +8,6 @@ typescript
 .env.local
 Plans/
 ${HOME}/
+
+# GIRA generated packages (reproducible via targets/gemini/build.ts)
+targets/gemini/dist/

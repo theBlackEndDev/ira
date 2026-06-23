@@ -1,0 +1,7 @@
+{
+  "_note": "Maps v5 Claude agent model tiers to Gemini model IDs. Edit freely — IDs change as Google ships new models. opus=top reasoning, sonnet=balanced, haiku=fast/cheap.",
+  "opus": "gemini-3-pro-preview",
+  "sonnet": "gemini-3-pro-preview",
+  "haiku": "gemini-3-flash-preview",
+  "_default": "gemini-3-pro-preview"
+}

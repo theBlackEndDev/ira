@@ -1,0 +1,31 @@
+{
+  "_comment": "GIRA hook wiring for Gemini CLI. Event names are Gemini's (SessionStart, BeforeAgent, BeforeTool, AfterTool, PreCompress, SessionEnd). There is no Stop-veto event, so IRA's Ralph completion-loop is NOT enforceable here — ralph degrades to guidance. ${extensionPath} is substituted by Gemini CLI; the install script rewrites it to an absolute path for the Antigravity variant.",
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "node ${extensionPath}/hooks/scripts/context-loader.mjs", "name": "gira-context-loader", "timeout": 5000, "description": "Load GIRA state, active modes, and project memory at session start" }
+      ]}
+    ],
+    "BeforeAgent": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "node ${extensionPath}/hooks/scripts/recall.mjs", "name": "gira-recall", "timeout": 4000, "description": "Project-scoped semantic recall from ira-memory (:7775, X-Cwd boost)" },
+        { "type": "command", "command": "node ${extensionPath}/hooks/scripts/keyword-detector.mjs", "name": "gira-keyword-detector", "timeout": 5000, "description": "Detect skill keywords and classify complexity" }
+      ]}
+    ],
+    "AfterTool": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "node ${extensionPath}/hooks/scripts/state-sync.mjs", "name": "gira-state-sync", "timeout": 3000, "description": "Track ISC progress on file edits" }
+      ]}
+    ],
+    "PreCompress": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "node ${extensionPath}/hooks/scripts/context-saver.mjs", "name": "gira-context-saver", "timeout": 5000, "description": "Save ISC progress and mode state before context compression" }
+      ]}
+    ],
+    "SessionEnd": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "node ${extensionPath}/hooks/scripts/session-capture.mjs", "name": "gira-session-capture", "timeout": 30000, "description": "Log the session conversation to ira-memory (:7775)" }
+      ]}
+    ]
+  }
+}
