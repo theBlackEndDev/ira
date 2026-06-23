@@ -36,6 +36,10 @@ const DRY = flag('dry-run');
 const NO_BACKUP = flag('no-backup');
 const SEED = flag('seed');
 const FORCE = flag('force');
+// --gira-only: pull the ira repo + reinstall GIRA (Gemini/Antigravity) and nothing else.
+// For work boxes that run GIRA but NOT the Claude IRA stack — skips the ~/.claude install,
+// Pulse, and the ira-memory backend steps (manage ira-memory separately there).
+const GIRA_ONLY = flag('gira-only');
 
 function log(tag: string, msg: string) { console.log(`  ${DRY ? '[dry] ' : ''}${tag.padEnd(9)} ${msg}`); }
 function die(msg: string): never { console.error(`\n✗ ${msg}`); process.exit(1); }
@@ -78,20 +82,45 @@ function dirtyTracked(dir: string): string[] {
     .split('\n').filter(Boolean);
 }
 
-console.log(`\n=== IRA update (${OS}${DRY ? ', dry-run' : ''}) ===`);
-log('IRA', IRA_REPO);
-log('MEMORY', IRA_MEMORY_REPO || '(not found — backend update will be skipped)');
+if (!GIRA_ONLY) {
+  console.log(`\n=== IRA update (${OS}${DRY ? ', dry-run' : ''}) ===`);
+  log('IRA', IRA_REPO);
+  log('MEMORY', IRA_MEMORY_REPO || '(not found — backend update will be skipped)');
+}
 
 if (!isGitRepo(IRA_REPO)) die(`ira repo at ${IRA_REPO} is not a git checkout`);
 if (!existsSync(INSTALLER)) die(`installer not found at ${INSTALLER} — is this an older checkout? Pull ira manually once, then re-run.`);
 
-const repos = [{ name: 'ira', dir: IRA_REPO }, ...(IRA_MEMORY_REPO ? [{ name: 'ira-memory', dir: IRA_MEMORY_REPO }] : [])];
+// --gira-only updates only the ira repo (GIRA is generated from it); ira-memory is managed
+// separately on GIRA-only boxes.
+const repos = GIRA_ONLY
+  ? [{ name: 'ira', dir: IRA_REPO }]
+  : [{ name: 'ira', dir: IRA_REPO }, ...(IRA_MEMORY_REPO ? [{ name: 'ira-memory', dir: IRA_MEMORY_REPO }] : [])];
 for (const r of repos) {
   const dirty = dirtyTracked(r.dir);
   if (dirty.length && !FORCE) {
     die(`${r.name} has uncommitted tracked changes — commit/stash them or re-run with --force:\n${dirty.map(d => '    ' + d).join('\n')}`);
   }
   if (dirty.length) log('WARN', `${r.name} is dirty; --force given, pulling with --autostash`);
+}
+
+// ── GIRA-ONLY fast path: pull ira, (re)install GIRA to detected harnesses, then stop. ──
+// Skips the ~/.claude install, Pulse, and the ira-memory backend steps entirely.
+if (GIRA_ONLY) {
+  console.log(`\n=== IRA update — GIRA only (${OS}${DRY ? ', dry-run' : ''}) ===`);
+  log('IRA', IRA_REPO);
+  const before = capture('git', ['rev-parse', '--short', 'HEAD'], IRA_REPO);
+  const res = run('git', ['pull', '--ff-only', ...(FORCE ? ['--autostash'] : [])], IRA_REPO);
+  if (res.status !== 0) die(`git pull failed in ira (${IRA_REPO}). Resolve manually and re-run.`);
+  const after = capture('git', ['rev-parse', '--short', 'HEAD'], IRA_REPO);
+  log('PULL', `ira: ${before === after ? `${after} (already current)` : `${before} → ${after}`}`);
+
+  const giraInstaller = join(IRA_REPO, 'targets', 'gemini', 'install.ts');
+  if (!existsSync(giraInstaller)) die(`GIRA installer not found at ${giraInstaller}`);
+  const gi = run('bun', [giraInstaller, '--target', 'auto']);
+  if (gi.status !== 0) die('GIRA install failed.');
+  console.log(`\n✓ GIRA updated.${DRY ? ' (dry-run — nothing changed)' : ''}\n`);
+  process.exit(0);
 }
 
 // ── 1. Backup ~/.claude (excludes the large projects/ corpus the install never touches) ──

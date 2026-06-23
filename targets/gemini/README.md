@@ -28,10 +28,19 @@ doesn't substitute `${extensionPath}` the way Gemini CLI does.
 
 ## Staying current
 
-`bun run update` (from the ira repo) refreshes GIRA automatically — **but only on machines where
-it's already installed**, so a Claude-only box is never forced to take it. The refresh regenerates
-from the freshly-pulled v5 tree, so GIRA tracks IRA on every update. To add GIRA to a new machine,
-run `install.ts` once; `update` keeps it current thereafter.
+**Full machines** (Claude IRA + memory + GIRA): `bun run update` refreshes GIRA automatically after
+the rest — but only if it's already installed, so a Claude-only box is never forced to take it.
+
+**GIRA-only boxes** (e.g. a work machine running Gemini CLI but not the Claude IRA stack): use
+
+```bash
+bun run update -- --gira-only      # pull ira + regenerate/reinstall GIRA, nothing else
+```
+
+`--gira-only` skips the `~/.claude` install, Pulse, and the ira-memory backend steps entirely —
+it just `git pull`s the ira repo and reruns `install.ts --target auto`. Manage ira-memory
+separately on those boxes (see the ira-memory repo's update steps). Either way GIRA is regenerated
+from the freshly-pulled v5 tree, so it always tracks IRA.
 
 ## What the generator does (v5 → Gemini)
 
