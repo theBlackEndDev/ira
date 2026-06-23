@@ -210,18 +210,49 @@ Browse `v5/.claude/skills/`. Each skill is a `SKILL.md` with optional `Workflows
 
 IRA runs natively on Claude Code. To run it on **Gemini CLI** or Google's **Antigravity CLI**,
 there's **GIRA** — IRA packaged for those harnesses, *generated* from the live `v5/.claude` tree
-(so it tracks IRA instead of drifting):
+(so it tracks IRA instead of drifting). The generator transforms v5 agents/skills into
+Gemini-compatible form and wires memory recall + capture to the same ira-memory backend (`:7775`).
+
+### Install
 
 ```bash
-bun targets/gemini/build.ts                    # generate the packages from v5
-bun targets/gemini/install.ts --target auto    # install to detected CLIs (gemini | antigravity | both | auto)
+# Repo-based (recommended — enables one-command upgrades):
+git clone git@github.com:theBlackEndDev/ira.git ~/ira && cd ~/ira
+bun targets/gemini/install.ts --target gemini      # gemini | antigravity | both | auto
 ```
 
-`bun run update` refreshes GIRA automatically on machines that have it. The generator transforms
-v5 agents/skills into Gemini-compatible form and wires memory recall + capture to the same
-ira-memory backend (`:7775`). One caveat: Gemini CLI has no stop-veto hook, so the Ralph
-completion-loop degrades to guidance there (everything else is at parity). See
-[`targets/gemini/README.md`](targets/gemini/README.md).
+`install.ts` regenerates from v5 and cleanly removes any prior install (and stale `.bak`) before
+copying. It writes only to `~/.gemini/` and never touches `~/.claude`, so it's safe on a machine
+that doesn't run the Claude stack. See [`targets/gemini/README.md`](targets/gemini/README.md) for
+the standalone-tarball install and all options.
+
+### Upgrade
+
+```bash
+# GIRA-only box (e.g. work machine — Gemini CLI but not the Claude IRA stack):
+cd ~/ira && bun run update -- --gira-only          # pull + regenerate/reinstall GIRA, nothing else
+
+# Full machine (Claude IRA + memory + GIRA):
+cd ~/ira && bun run update                          # refreshes GIRA after the rest, if installed
+```
+
+### Memory (local / no-OpenAI)
+
+GIRA's recall/capture use the **ira-memory** backend on `:7775`. To run it without OpenAI — e.g. on
+a work machine — set `IRA_LLM_PROVIDER` in `ira-memory/.env`:
+
+```bash
+IRA_LLM_PROVIDER=none      # zero external calls; recall via full-text + project tags (fully local)
+# or: local (Ollama)  |  gemini (GEMINI_API_KEY)  |  openai (default)
+```
+
+Update an installed backend with `cd ~/ira-memory && bun run update`. Full provider matrix is in the
+[ira-memory README](https://github.com/theBlackEndDev/ira-memory#llm-provider--running-without-openai).
+
+### Caveat
+
+Gemini CLI has no stop-veto hook, so IRA's **Ralph** completion-loop degrades to guidance there
+(everything else — recall, capture, ISC tracking, complexity classification — is at parity).
 
 ## CLI + tmux Sessions
 
