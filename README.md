@@ -42,7 +42,7 @@ The repository is two cooperating pieces:
 ```bash
 git clone git@github.com:theBlackEndDev/ira-memory.git ~/Projects/ira-memory
 cd ~/Projects/ira-memory
-cp .env.example .env          # fill DATABASE_URL (defaults to localhost:5433)
+cp .env.example .env          # set MEMORY_DATABASE_URL (defaults to localhost:5433) + OPENAI_API_KEY
 docker compose up -d          # Postgres + pgvector
 bun install
 bunx prisma migrate deploy    # apply schema
