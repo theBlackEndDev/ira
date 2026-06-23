@@ -206,6 +206,23 @@ Browse `v5/.claude/skills/`. Each skill is a `SKILL.md` with optional `Workflows
 
 ---
 
+## Other harnesses — GIRA (Gemini CLI & Antigravity)
+
+IRA runs natively on Claude Code. To run it on **Gemini CLI** or Google's **Antigravity CLI**,
+there's **GIRA** — IRA packaged for those harnesses, *generated* from the live `v5/.claude` tree
+(so it tracks IRA instead of drifting):
+
+```bash
+bun targets/gemini/build.ts                    # generate the packages from v5
+bun targets/gemini/install.ts --target auto    # install to detected CLIs (gemini | antigravity | both | auto)
+```
+
+`bun run update` refreshes GIRA automatically on machines that have it. The generator transforms
+v5 agents/skills into Gemini-compatible form and wires memory recall + capture to the same
+ira-memory backend (`:7775`). One caveat: Gemini CLI has no stop-veto hook, so the Ralph
+completion-loop degrades to guidance there (everything else is at parity). See
+[`targets/gemini/README.md`](targets/gemini/README.md).
+
 ## CLI + tmux Sessions
 
 IRA includes a CLI (`scripts/ira-cli.ts`) for persistent per-project Claude Code sessions that survive disconnects and reboots.

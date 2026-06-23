@@ -10,6 +10,29 @@ bun targets/gemini/build.ts            # regenerate both packages into dist/
 #   dist/gira-antigravity/ → Antigravity CLI plugin (plugin.json)
 ```
 
+## Install — choose your harness
+
+```bash
+bun targets/gemini/install.ts                        # --target auto (default): install to whatever's detected
+bun targets/gemini/install.ts --target gemini        # Gemini CLI extension only  → ~/.gemini/extensions/gira
+bun targets/gemini/install.ts --target antigravity   # Antigravity plugin only    → ~/.gemini/antigravity-cli/plugins/gira
+bun targets/gemini/install.ts --target both          # both
+bun targets/gemini/install.ts --dry-run              # preview, change nothing
+```
+
+`auto` detects each CLI by binary-on-PATH (`gemini` / `antigravity`) or its home dir. The installer
+**regenerates from v5 first** (skip with `--no-generate`), removes any prior `gira` *and* a stale
+`gira.bak` (the leftover-`.bak` dup-load bug from the original build), then copies in the fresh
+package. For Antigravity it writes a root `hooks.json` with absolute paths, since Antigravity
+doesn't substitute `${extensionPath}` the way Gemini CLI does.
+
+## Staying current
+
+`bun run update` (from the ira repo) refreshes GIRA automatically — **but only on machines where
+it's already installed**, so a Claude-only box is never forced to take it. The refresh regenerates
+from the freshly-pulled v5 tree, so GIRA tracks IRA on every update. To add GIRA to a new machine,
+run `install.ts` once; `update` keeps it current thereafter.
+
 ## What the generator does (v5 → Gemini)
 
 - **Agents** (`v5/.claude/agents/*.md` → `agents/*.md`): keeps name/description/body; maps the

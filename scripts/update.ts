@@ -138,11 +138,31 @@ const inst = run('bun', installArgs);
 if (inst.status !== 0) die('IRA installer failed — your backup is intact; restore with: tar xzf <backup>.tgz -C ~');
 log('INSTALL', `IRA tree → ${join(HOME, '.claude')}${SEED ? ' (+ seeded)' : ''}`);
 
-// ── 5. Health checks (best-effort) ──
+// ── 5. Refresh GIRA (Gemini CLI / Antigravity) — only on machines that already have it ──
+refreshGira();
+
+// ── 6. Health checks (best-effort) ──
 healthCheck('memory-api', 'http://127.0.0.1:7775/health');
 healthCheck('pulse', 'http://127.0.0.1:31337/health');
 
 console.log(`\n✓ Update complete.${DRY ? ' (dry-run — nothing changed)' : ''}`);
+
+/**
+ * Regenerate + reinstall GIRA (the Gemini CLI extension / Antigravity plugin) — but ONLY for
+ * targets already installed on this machine, so update never forces GIRA onto a Claude-only box.
+ * The installer regenerates from the freshly-pulled v5 tree, so GIRA tracks IRA on every update.
+ */
+function refreshGira() {
+  const installer = join(IRA_REPO, 'targets', 'gemini', 'install.ts');
+  if (!existsSync(installer)) return;
+  const have: string[] = [];
+  if (existsSync(join(HOME, '.gemini', 'extensions', 'gira'))) have.push('gemini');
+  if (existsSync(join(HOME, '.gemini', 'antigravity-cli', 'plugins', 'gira'))) have.push('antigravity');
+  if (have.length === 0) { log('GIRA', 'not installed — skipping (run targets/gemini/install.ts to add)'); return; }
+  if (DRY) { log('GIRA', `refresh ${have.join(', ')}`); return; }
+  const r = spawnSync('bun', [installer, '--target', have.join(',') === 'gemini,antigravity' ? 'both' : have[0]], { encoding: 'utf-8', stdio: ['ignore', 'inherit', 'inherit'] });
+  log('GIRA', r.status === 0 ? `refreshed ${have.join(', ')}` : `⚠️ refresh exited ${r.status}`);
+}
 
 // ── helpers ────────────────────────────────────────────────────────────────
 /** Bring the backend DB container up (idempotent). Needs Docker running; best-effort. */
