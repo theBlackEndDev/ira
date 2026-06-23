@@ -42,6 +42,38 @@ it just `git pull`s the ira repo and reruns `install.ts --target auto`. Manage i
 separately on those boxes (see the ira-memory repo's update steps). Either way GIRA is regenerated
 from the freshly-pulled v5 tree, so it always tracks IRA.
 
+## Source vs. installed extension (read this before hand-editing anything)
+
+There are **two separate things**, and conflating them causes stale-config bugs:
+
+| | What it is | Updated by |
+|--|-----------|-----------|
+| **`~/ira/targets/gemini/`** | the *source* — generator, templates, model map | `git pull` |
+| **`~/.gemini/extensions/gira/`** | the *installed extension* — a generated **copy** that Gemini actually loads | `install.ts` (NOT git pull) |
+
+Gemini loads the extension from `~/.gemini/extensions/gira/`, which is a self-contained copy the
+generator produced. **`git pull` updates the source but not the installed copy.** The model is:
+*pull/edit the repo → run the installer to "publish" it into the extension.* The installer does a
+clean `rm -rf` + recopy every time, so source and installed never drift.
+
+**Never hand-edit or partially copy into `~/.gemini/extensions/gira/`** — it's overwritten on every
+install, and a partial copy (e.g. new scripts over an old `hooks.json`) leaves the config pointing
+at scripts that don't exist. Always go through `install.ts` / `bun run update -- --gira-only`.
+
+## Troubleshooting
+
+**`Cannot find module .../hooks/scripts/<name>.mjs` on SessionEnd (or any event)** — the installed
+extension is stale: its `hooks.json` references a script the current package doesn't ship (classic
+sign: `session-harvester.mjs`, which only existed in the pre-v5 standalone gira). A plain `git pull`
+or a manual file copy left old config beside new scripts. Fix with a clean reinstall:
+
+```bash
+cd ~/ira && git pull --ff-only && bun targets/gemini/install.ts --target gemini
+# verify — should NOT mention session-harvester, and every referenced script must exist:
+grep -o 'scripts/[a-z-]*\.mjs' ~/.gemini/extensions/gira/hooks/hooks.json
+ls ~/.gemini/extensions/gira/hooks/scripts/
+```
+
 ## What the generator does (v5 → Gemini)
 
 - **Agents** (`v5/.claude/agents/*.md` → `agents/*.md`): keeps name/description/body; maps the
